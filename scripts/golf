@@ -12,12 +12,13 @@ my $golf = new Games::Golf( $cfg_file );
 $golf->load( "entries.dat" ); # hardconfig, should be changed.
 
 # Dirty configuration, should be refined later.
-my $hole   = ($cfg_file =~ m!([^/]+)\.glf\z! );
+$cfg_file =~ m!([^/]+)\.glf\z!;
+my $hole   = $1;
 my $author = "golfer";
 my $email  = 'golfer@perl.org';
-my $date   = localtime(time);
+my $date   = time;
 my $code;
-open CODE, "<$hole.pl" or die $!;
+open CODE, "< $hole.pl" or die "Can't open $hole.pl: $!";
 {
     local $/;
     $code = <CODE>;
@@ -34,7 +35,7 @@ my $entry = new Games::Golf::Entry
 $entry = $golf->add( $entry );
 
 # Check the cache.
-if ( $entry->results->[0] > 0 ) {
+if ( $entry->result->[0] > 0 ) {
     print "This entry has already been tested on ";
     print $entry->date_string . ".\n";
 } else {
@@ -42,21 +43,24 @@ if ( $entry->results->[0] > 0 ) {
 }
 
 
-print "Tests:  " . $entry->results->[0] . "\n";
-print "Passed: " . $entry->results->[1] . "\n";
-foreach my $i ( 0 .. $entry->results->[0] ) {
-    print "  test $i:";
-    print $entry->results->[$i+2] ? "\n".$entry->results->[$i+2] : "passed.";
+print "Tests:  " . $entry->result->[0] . "\n";
+print "Passed: " . $entry->result->[1] . "\n";
+print "\nDetailed results for all tests:\n\n";
+foreach my $i ( 0 .. $entry->result->[0] ) {
+    print "  test $i: ";
+    print $entry->result->[$i+2] ? "\n".$entry->result->[$i+2] : "passed.";
     print "\n";
 }
 
-if ( $entry->results->[0] == $entry->results->[1] ) {
-    print "Hooray, you passed.\n";
+print "\n";
+
+if ( $entry->result->[0] == $entry->result->[1] ) {
+    print "Hooray, you passed.\n\n";
 } 
 
 print "You shot a round of ".$entry->score." strokes.\n";
-print "(The decimal part is your tie break score.)\n";
-print "You can submit your solution at: http://perlgolf.sourceforge.net/cgi-bin/PGAS/leader.cgi?course=3";
+print "(The decimal part is your tie break score.)\n\n";
+print "You can submit your solution to PGAS!\n";
 
 $golf->dump( "entries.dat" );
 exit;

@@ -2,7 +2,7 @@
 #
 # Games::Golf::TestSuite methods: compile()
 #
-# $Id: 42tcompile.t,v 1.4 2002/05/12 18:16:57 book Exp $
+# $Id: 42tcompile.t,v 1.5 2002/05/22 18:57:51 book Exp $
 
 use strict;
 use Test;
@@ -19,7 +19,9 @@ $entry = Games::Golf::Entry->new();
 #          Test compile method           #
 #----------------------------------------#
 
-$test = Games::Golf::TestSuite->new( $TESTSUITE{compile}, 'test.pl' );
+$test = Games::Golf::TestSuite->new( $TESTSUITE{compile} );
+$test->set_type( 'script' );
+$test->set_name( 'test.pl' );
 
 # --- Should compile ---
 
@@ -45,12 +47,8 @@ $entry->code( << 'EOC' );
 EOC
 
 $result = $test->check($entry);
-
 ok( $result->[0], 1 );
 ok( $result->[1], 0 );
 ok( $result->[2], qr/^Script doesn't compile!/ );
 
-# Was the entry modified too?
-ok( $result, $entry->result() );
-
-BEGIN { plan tests => 8 }
+BEGIN { plan tests => 7 }

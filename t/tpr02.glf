@@ -1,13 +1,14 @@
 =begin conf
 
 PGAS = http://perlgolf.sourceforge.net/cgi-bin/PGAS/
-version = $Revision: 1.4 $
+version = $Revision: 1.8 $
 
 =end conf
 
 =begin hole anagrams
 
-id = 2
+id   = 2
+type = script
 
 =end hole
 
@@ -118,6 +119,30 @@ tie. For solutions that have the same score with different characters,
 this month's tiebreaker is related to anagrams, and will favor the
 script with the smallest number of different characters.
 
+For instance, this solution:
+
+    $ab = $cd * $ef
+
+would lose to this solution:
+
+    $ab = $ad * $af
+
+B<Update: The tie-breaker algorithm does not take into account literal
+newlines.>
+
+=begin tiebreaker smalldiff
+
+my $entry = shift;
+my $code  = $entry->code;
+
+my $temp = join "", sort split //, $code;
+$temp =~ s/(.)\1+/$1/g;
+my $tie  = (length($temp)-1) / $entry->score;
+$tie    -= .01 if $tie == 1;
+return sprintf "%02f", $tie
+
+=end tiebreaker
+
 =item o
 
 All programs must work on
@@ -182,8 +207,8 @@ You are to output the following:
 #
 
 # The whole set of tests.
-my @set =
-  (
+my @set = (
+
 # void input.
 [ "", ""],
 
@@ -336,7 +361,6 @@ alllarryw arrywalll larrywall lawyrrall llarrywal llawyrral lllarrywa rrywallla 
 );
 
 # Ok, here's the real thing.
-$test->compile;           # at least.
 $test->limit(time => 5);  # should be enough.
 foreach my $set ( @set ) {
     $test->aioee( "", $set->[0], $set->[1], "", undef );
@@ -385,7 +409,6 @@ L<here|http://perlgolf.sourceforge.net/cgi-bin/PGAS/leader.cgi?course=2>.
 Beginners are encouraged to enter and there is a separate leaderboard for
 them.
 
-
 =head2 Feedback
 
 We encourage you to send feedbacks as well as your ideas for holes and
@@ -420,4 +443,6 @@ golfers the next month.
 
 If you'd like to be a I<part-time referee>, drop us a note:
 L<golf@theperlreview.com|mailto:golf@theperlreview.com>.
+
+=cut
 

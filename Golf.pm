@@ -1,5 +1,5 @@
 #
-# $Id: Golf.pm,v 1.38.2.1 2002/05/15 21:54:30 book Exp $
+# $Id: Golf.pm,v 1.48 2002/05/31 23:26:56 book Exp $
 #
 
 package Games::Golf;
@@ -10,15 +10,18 @@ local $^W = 1; # Enable warnings the old way
 
 use vars qw/ $VERSION $AUTOLOAD $subs /;
 BEGIN {
-    # add all registered accessors here
-    my @subs = split /\|/, $subs = 'file';
+    # add all registered autoloaded accessors here
+    my @subs = map { ("set_$_", "get_$_") } split /\|/,
+               $subs = 'version|pgas';
+    $subs = join '|', @subs;
     use subs @subs;
 }
 
-$VERSION = '0.14a';
+$VERSION = '0.15';
 
 # Modules we rely upon...
 use Carp;
+use Data::Dumper ();
 use Games::Golf::Entry;
 use Games::Golf::TestSuite;
 
@@ -62,7 +65,7 @@ entries.
 The C<Games::Golf> object will handle a list of C<Games::Golf::Entry> 
 objects, as well as a list of C<Games::Golf::TestSuite.pm> objects.
 
-=head2 CONSTRUCTOR
+=head2 Constructor
 
 =over 4
 
@@ -75,16 +78,18 @@ for details about this file).
 =cut
 
 sub new {
+
     # Create the object, and bless it.
     my $class = shift;
-    my $file  = shift || croak "Not enough parameters";
-    my $self     = 
-      { file     => $file,
+    my $file  = shift
+      || croak "fatal: Not enough parameters for Games::Golf constructor";
+    my $self = {
+        file     => $file,
         entries  => {},
         deadline => undef,
         referees => {},
         testers  => {}
-      };
+    };
     bless $self, $class;
 
     $self->_parse_config_file();
@@ -95,13 +100,21 @@ sub new {
 
 =back
 
-=head2 ACCESSORS
+=head2 Accessors
 
 =over 4
 
-=item hole_names(  )
+=item file()
 
-Return the names of the holes of the course.
+The configuration file of the course.
+
+=cut
+
+sub file { shift->{file} }
+
+=item hole_names()
+
+Return the list of the course's holes names.
 
 =cut
 
@@ -116,11 +129,10 @@ The following accessors are autoloaded.
 
 =over 4
 
-=item file(  )
-
-The configuration file of the course.
+None yet.
 
 =cut
+
 sub AUTOLOAD {
     # we don't DESTROY
     return if $AUTOLOAD =~ /::DESTROY/;
@@ -129,8 +141,11 @@ sub AUTOLOAD {
     $AUTOLOAD =~ /.*::(\w+)/;
     my $attr = $1;
     # must be one of the registered subs (compile once)
-    if( $attr =~ /$subs/o ) {
+    if( $attr =~ /^(?:[gs]et)?(?:$subs)$/o ) {
         no strict 'refs';
+
+        # get the attribute name
+        $attr =~ s/^[sg]et_//;
 
         # create the method (but don't pollute other namespaces)
         *{$AUTOLOAD} = sub {
@@ -147,7 +162,7 @@ sub AUTOLOAD {
 
 =back
 
-=head2 PUBLIC METHODS
+=head2 Public methods
 
 =over 4
 
@@ -276,8 +291,9 @@ sub add {
     my ($self, $entry) = @_;
 
     my $id = $entry->id();
-    $self->{entries}{$id} = $entry unless
-      exists $self->{entries}{$id};
+    $self->{entries}{$id} = $entry
+        unless exists $self->{entries}{$id};
+
     return $self->{entries}{$id};
 }
 
@@ -303,27 +319,20 @@ sub test {
     }
 }
 
-=item dump( $path )
+=item dump( $file )
 
 Dump all entries in a single file.
 
 =cut
 
 sub dump {
-    my ( $self, $path ) = @_;
-    $path or return;
-
-    # Module we rely upon.
-    eval { require Data::Dumper; };
-    if ( $@ ) {
-        carp "Module Data::Dumper required";
-        return;
-    }
-    import  Data::Dumper qw(Dumper);
+    my ( $self, $file ) = @_;
 
     # Open file and dump.
-    open DUMP, ">$path" or croak $!;
-    print DUMP Dumper( $self->{entries} );
+    open DUMP, "> $file" or croak "fatal: can't open $file: $!";
+    print DUMP Data::Dumper->Dump([ $self->{entries} ],
+                                  [ 'Games::Golf::_entries' ]);
+    print DUMP "\n1;\n"; # make sure the do() will return a true value
     close DUMP;
 }
 
@@ -335,8 +344,21 @@ method. This initiates the cache mechanism.
 =cut
 
 sub load {
-    my ( $self, $path ) = @_;
-    $self->{entries} = do $path or croak $!;
+    my ( $self, $file ) = @_;
+
+    # nothing to load
+    return unless -e $file;
+
+    # read in config files: system first, then user
+    unless ( my $return = do $file) {
+        croak "fatal: couldn't parse $file: $@" if $@;
+        croak "fatal: couldn't do $file: $!"    unless defined $return;
+        croak "fatal: couldn't run $file"       unless $return;
+    }
+    # the name is hardcoded by the dump method
+    # and the use of do() coerces us into making _entries a package global
+    $self->{entries} = $Games::Golf::_entries;
+    undef $Games::Golf::_entries; # clean up after
 }
 
 =back
@@ -345,31 +367,122 @@ sub load {
 
 =over 4
 
-=item _parse_config_file(  )
+=item _parse_config_file()
 
 Parse the config file, and fetch all attributes of the course. Create
-the testers for each of the holes.
+the C<Games::Golf::TestSuite> objects for each of the holes.
 
 =cut
 
 sub _parse_config_file {
-    my $self = shift;
+    my $self   = shift;
+    my $config = {};
 
-    open CFG, "<$self->file" or croak "Can't open config file: $!";
-    my $content;
-    {
-        local $/;
-        $content = <CFG>;
+    open CFG, "< $self->{file}" or croak "Can't open $self->{file}: $!";
+
+    # read the .glf file to extract configuration and hole data
+    my ( $conf, $hole, $tiebreak, %code, %conf, %tiebreak );
+
+    # many things can break here,
+    # particularly if the pod contains =begin within =begin,
+    # which pod doesn't support anyway.
+    while (<CFG>) {
+
+        # very important!
+        last if /^__END__$/;
+
+        # new configuration section
+        /^=begin\s+(conf|hole|tiebreaker)\b(.*)?/ && do {
+            if ( $1 eq 'hole' ) {
+                $conf = 1;
+                $hole = $2;
+                $hole =~ s/^\s*|\s*$//g;           # trim variable name
+                $hole =~ /^[-\w]+$/ or croak "fatal: bad hole name";
+                $conf{$hole}->{name} = "$hole.pl"; # set a default
+            }
+            elsif ( $1 eq 'tiebreaker' ) {
+                $tiebreak = $2;
+                $tiebreak =~ s/^\s*|\s*$//g;       # trim variable name
+                $tiebreak =~ /^[-\w]+$/ or croak "fatal: bad tiebreaker name";
+                $tiebreak{$tiebreak} = '';         # prepare hash element
+                $tiebreak{':default'} ||= $tiebreak;
+            }
+            else { $conf = 1 }
+            next;
+        };
+
+        # end of configuration section
+        # $hole remains set
+        /^=end\s+(conf|hole|tiebreaker)/ && do {
+            undef $conf;
+            undef $tiebreak;
+            next;
+        };
+
+        # use the data line
+        # as configuration directive
+        if ($conf) {
+            next if /^\s*(#|$)/;    # ignore comments and blank lines
+            /^\s*(\w+)\s*=\s*(.*?)\s*$/
+              or croak "fatal: bad configuration directive in $self->{file} "
+                     . "line $.:\n$_";
+            $conf{ $hole || ':main' }->{ lc $1 } = $2;
+            next;
+        }
+
+        # this is tiebreaker code
+        $tiebreak{$tiebreak} .= $_, next if $tiebreak;
+
+        # this is hole code
+        $code{$hole} .= $_ if $hole;
     }
+
     close CFG;
 
-    my $hole = ( $self->file =~ m!([^/]+)\.glf\z! );
+    # Create a coderef for the defined tiebreakers
+    foreach my $key ( keys %tiebreak ) {
+        next if $key eq ':default'; # special case
 
-    # For now, the config file contains only the test-code for only
-    # one hole (multihole will be handled later).  Note that we
-    # prepare for multihole by using an anonymous hash, but the only
-    # value accepted by now is "hole".
-    $self->{testers}{$hole} = new Games::Golf::TestSuite( $content, "$hole.pl" );
+        # evaluate code
+        my $code_ref = eval 'sub {' . $tiebreak{ $key } . '}';
+
+        if ( $@ ) { # an error occurred... croak
+            croak <<HERE;
+Error while evaluating tiebreaker: $@
+The tiebreaker '$key' is broken:
+$tiebreak{$key}
+HERE
+        }
+
+        # tiebreaker is valid Perl code.
+        $tiebreak{ $key } = $code_ref;
+    }
+
+    # the default default tiebreaker does nothing
+    $tiebreak{':default'} = $tiebreak{$tiebreak{':default'}} || sub {};
+
+    # now create the Games::Golf::TestSuite objects
+    for my $hole ( keys %code ) {
+        my $tester = $self->{testers}{$hole} =
+          new Games::Golf::TestSuite( $code{$hole}, "$hole.pl" );
+
+        # set the various defaults
+        $conf{$hole}->{version} ||= $conf{':main'}->{version};
+        $conf{$hole}->{tiebreaker} ||= ':default';
+        $conf{$hole}->{tiebreaker} = $tiebreak{ $conf{$hole}->{tiebreaker} };
+
+        # set the GGT attributes
+        for my $key ( keys %{ $conf{$hole} } ) {
+            my $accessor = "set_$key";
+            $tester->$accessor( $conf{$hole}->{$key} );
+        }
+    }
+
+    # and set the Games::Golf attributes the same way
+    for my $key ( keys %{ $conf{':main'} } ) {
+        my $accessor = "set_$key";
+        $self->$accessor( $conf{':main'}->{$key} );
+    }
 }
 
 1;
@@ -383,6 +496,9 @@ will describe the course.
 
 
 =head1 ENVIRONMENT VARIABLES
+
+!!FIXME!! Shouldn't environment variables be handled by the player/referee
+scripts?
 
 =head2 PERL_GOLF_NICK
 
@@ -443,7 +559,7 @@ http://rt.cpan.org/NoAuth/Bugs.html?Dist=Games-Golf
 
 =item Philippe 'BooK' Bruhat E<lt>book@cpan.orgE<gt>
 
-=item Dave Hoover            E<lt>dave@redsquirreldesign.comE<gt>
+=item Amir Karger            E<lt>akarger@cpan.orgE<gt>
 
 =item Steffen Müller         E<lt>games-golf@steffen-mueller.netE<gt>
 

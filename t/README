@@ -37,9 +37,6 @@ Basic:
 
 Internals:
  * 10tlimit.t    - Games::Golf::TestSuite methods: new() and limit()
- * 12unixnl.t    - Low-level GGT methods: _capture_unix_nolimit()
- * 12win9xnl.t   - Low-level GGT methods: _capture_win9x_nolimit()
- * 12winntnl.t   - Low-level GGT methods: _capture_winnt_nolimit()
  * 14unix.t      - Low-level GGT methods: _capture_unix()
 
  * 25capture.t   - GGT internal API methods: capture()
@@ -53,8 +50,12 @@ Modules:
 
  * 40taccess.t   - Games::Golf::TestSuite methods: accessors
  * 41tcheck.t    - Games::Golf::TestSuite methods: check() and run()
- * 42taioee.t    - Games::Golf::TestSuite methods: aioee()
+ * 42taioee.t    - Games::Golf::TestSuite methods: aioee() and loop()
  * 42tcompile.t  - Games::Golf::TestSuite methods: compile()
  * 42tsub.t      - Games::Golf::TestSuite methods: makesub(), sub() and ok()
  * 45testsuite.t - Games::Golf::TestSuite: Test the module itself
+
+ * 50gaccess.t   - Games::Golf methods: new() and accessors
+ * 52gcache.t    - Games::Golf methods: the cache dump() and load()
+ * 55golf.t      - Games::Golf: Test the module itself
 

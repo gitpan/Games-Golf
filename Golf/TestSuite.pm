@@ -3,7 +3,7 @@
 # This program is free software; you can redistribute it and/or
 # modify it under the same terms as Perl itself.
 #
-# $Id: TestSuite.pm,v 1.97.2.1 2002/05/15 21:54:32 book Exp $
+# $Id: TestSuite.pm,v 1.107 2002/06/01 00:07:28 book Exp $
 #
 package Games::Golf::TestSuite;
 
@@ -11,17 +11,17 @@ use 5.005;
 use strict;
 local $^W = 1; # Enable warnings the old way
 
+use vars qw/ $AUTOLOAD $subs /;
 use Games::Golf::OS qw/ :functions /;
 
 use Carp;
 use File::Basename;
-use File::Temp qw/ tempfile mktemp /;
 use File::Spec;
 
 use IO::File;
 use IO::Select;
 use IPC::Open3;
-use POSIX qw( :sys_wait_h );
+use POSIX qw( :sys_wait_h tmpnam );
 
 use constant IO_TIMEOUT   => 0.05;
 use constant IO_BLOCKSIZE => 1024;
@@ -29,24 +29,34 @@ use constant IO_BLOCKSIZE => 1024;
 # the various implementations of the capture() method
 my %capture = (
    unix          => \&_capture_unix,
-   unix_nolimit  => \&_capture_unix_nolimit,
-   winnt_nolimit => \&_capture_winnt_nolimit,
-   win9x_nolimit => \&_capture_win9x_nolimit,
+   unix_nolimit  => \&_capture_nolimit,
+   winnt_nolimit => \&_capture_nolimit,
+   win9x_nolimit => \&_capture_nolimit,
 );
 
-# temporary files template, for use with File::Temp
-my $template = File::Spec->canonpath( (File::Spec->tmpdir() || ".")             
-                                      . "/golfXXXX" );      
+BEGIN {
+    # add all registered accessors here
+    my @subs = map { ( "get_$_", "set_$_" ) } split /\|/,
+               $subs = 'id|type|version|name|tiebreaker';
+    $subs = join '|', @subs;
+    use subs @subs;
+}
 
 =head1 NAME
 
-Games::Golf::TestSuite - Class that can run test suites
+Games::Golf::TestSuite - A class that can run test suites
 
 =head1 SYNOPSIS
 
     use Games::Golf::TestSuite;
 
-    my $test = new Games::Golf::TestSuite( $hole );
+    my $test = new Games::Golf::TestSuite( $code );
+
+    # this is usually done automatically by Games::Golf
+    $test->set_type( 'script' );
+    $test->set_name( 'script.pl' );
+
+    # test a list of Games::Golf::Entry against the test
     $test->run ( @entries );
 
 =head1 DESCRIPTION
@@ -64,9 +74,6 @@ test script from scratch can be hard, but we have tackled
 the difficult tasks so you don't have to.  A basic test
 suite could be written as:
 
-    # Does the solution compile?
-    $test->compile;
-
     # Provide input and expect  output
     $test->aioee("", "stdin", "stdout", "stderr", 0);
 
@@ -74,17 +81,23 @@ Could it get much easier than that?  When the testing
 methods of this class are called, the test suite file is
 executed, and the results stored in the object attributes.
 
-=head1 CONSTRUCTOR
+=head1 AVAILABLE METHODS
+
+=head2 Constructor
 
 =over 4
 
-=item new( $testcode, $entryfile )
+=item new( $testcode )
 
-The constructor reads the test suite code, and the name
-of the file that is supposed to store the entry code.
- 
+The constructor reads the test suite code and compiles it
+into a snippet that will test C<Games::Golf::Entry> objects.
+
 Any errors in compilation will result in an exception being
 raised.
+
+The methods used for the test require other attributes to
+be set (C<type>, C<name> and a few others). This is usually
+done by the main C<Games::Golf> object.
 
 Full details on how to create test suite files can be found
 in the B<UNNAMED> section below.
@@ -93,12 +106,11 @@ in the B<UNNAMED> section below.
 
 sub new {
     my $class = shift;
-    my ( $code, $file ) = @_;
+    my $code  = shift;
 
     # Create object
     my $self  = bless {
         code  => $code,
-        file  => $file,
         limit => {
             time   => undef,
             stdout => undef,
@@ -112,30 +124,22 @@ sub new {
     $self->{arch} = 'winnt_nolimit' if is_WindowsNT;
     $self->{arch} = 'win9x_nolimit' if is_Windows9x;
 
-    if (@_ == 2) {
-
-        # Create the coderef (someday we will use Safe)
-        $self->{testsuite} = eval << "        EOT";
-        sub {
-            no strict;
-            local \$^W;
-            my \$test = shift; # this is the Games::Golf::TestSuite
-            # create a "sandbox", so as to avoid variable conflicts
-            package Games::Golf::TestSuite::Sandbox;
-            # insert the test code
-            $code;
-        }
-        EOT
-
-        # Report any compilation errors
-        if ($@) {
-            croak "fatal: failed to compile testsuite for '$file':\n$@";
-        }
+    # Create the coderef (someday we will use Safe)
+    $self->{testsuite} = eval << "    EOT";
+    sub {
+        no strict;
+        local \$^W;
+        my \$test = shift; # this is the Games::Golf::TestSuite
+        # create a "sandbox", so as to avoid variable conflicts
+        package Games::Golf::TestSuite::Sandbox;
+        # insert the test code
+        $code;
     }
+    EOT
 
-    # Complain about wrong number of parameters
-    else {
-        croak "fatal: constructor needs two parameters";
+    # Report any compilation errors
+    if ($@) {
+        croak "fatal: failed to compile testsuite:\n$@";
     }
 
     return $self;
@@ -143,7 +147,7 @@ sub new {
 
 =back
 
-=head1 LIMITS
+=head2 Limits
 
 Limits are restrictions on how a script can behave.  For
 example, setting the C<stdout> limit to C<1024> will kill a
@@ -189,7 +193,7 @@ Platform dependent.
 
 A data limit for stdout and stderr.
 
-Platform dependent. (Win9X)
+Platform dependent. (Win9x)
 
 =back
 
@@ -244,6 +248,8 @@ sub limit {
     }
 }
 
+=head2 Accessors
+
 =over 4
 
 =item arch( [$arch] )
@@ -262,8 +268,6 @@ unchanged.
 The C<capture()> method can also decide to use a more appropriate
 implementation if it detects possible optimisations.
 
-=back
-
 =cut
 
 sub arch {
@@ -273,6 +277,59 @@ sub arch {
     if ( exists $capture{$new} ) { $self->{arch} = $new }
     return $old;
 }
+
+=back
+
+The following accessors are autoloaded.
+
+=over 4
+
+=item get_id( [$id] )
+=item set_id( [$id] )
+
+Get (or set) the PGAS id for the tested hole. The two methods are
+identical.
+
+=item get_version( [$version] )
+=item set_version( [$version] )
+
+Get (or set) the test version for the tested hole. The two methods are
+identical.
+
+=cut
+
+sub AUTOLOAD {
+    # we don't DESTROY
+    return if $AUTOLOAD =~ /::DESTROY/;
+
+    # fetch the attribute name
+    $AUTOLOAD =~ /.*::(\w+)/;
+    my $attr = $1;
+    # must be one of the registered subs (compile once)
+    if( $attr =~ /^(?:$subs)$/o ) {
+        no strict 'refs';
+
+        # we should add limit_(time|stderr|stdout|opcode)
+        # methods that automatically call limit()
+        # for use in the hole config part of a .glf file
+
+        # get the real attribute name
+        $attr =~ s/^[gs]et_//;
+
+        # create the method (but don't pollute other namespaces)
+        *{$AUTOLOAD} = sub {
+            my $self = shift;
+            @_ ? $self->{$attr} = shift: $self->{$attr};
+        };
+
+        # now do it
+        goto &{$AUTOLOAD};
+    }
+    # should we really die here?
+    croak "Undefined method $AUTOLOAD";
+}
+
+=back
 
 =head1 METHODS: RUNNING TEST-SUITES ON ENTRIES
 
@@ -312,25 +369,40 @@ sub check {
     $self->{code}  = $entry->code;
     $entry->result( [ 0, 0 ] );
 
+    # compile or makesub
+    croak "fatal: cannot prepare code of type $self->{type}"
+      unless $self->{type} =~ /^(?:script|sub)$/;
+
     # save the code to a file
     # but make sure we don't destroy a file by the same name
     my $tmpfile = '';
-    if( -e $self->{file} ) {
-        # rename the file
-        $tmpfile = "$self->{file}." . time;
-        rename( $self->{file}, $tmpfile )
-            or croak "fatal: could not rename $self->{file} to $tmpfile";
+    if( $self->{type} eq 'script' ) {
+        if( -e $self->{name} ) {
+            # rename the file
+            $tmpfile = "$self->{name}." . time;
+            rename( $self->{name}, $tmpfile )
+                or croak "fatal: could not rename $self->{name} to $tmpfile";
+        }
+        open F, "> $self->{name}"
+          or croak "fatal: can't open $self->{name}: $!";
+        print F $entry->code;
+        close F;
     }
-    open F, "> $self->{file}" or croak "fatal: can't open $self->{file}: $!";
-    print F $entry->code;
-    close F;
+
 
     # run the testsuite (emulating a method call)
     eval {
+        # prepare with compile or makesub
+        $self->compile() if $self->{type} eq 'script';
+        $self->makesub() if $self->{type} eq 'sub';
+
         no strict;
         local $^W;
         $self->{testsuite}($self);
     };
+
+    # test is over
+    $entry->version( $self->{version} );
 
     # cleanup after
     # !!FIXME!! duplicated code
@@ -338,11 +410,13 @@ sub check {
     *{"Games::Golf::TestSuite::Sandbox::$self->{hole}"} = sub { };
 
     # put things back to normal
-    unlink $self->{file}
-        or carp "Couldn't unlink temporary file $self->{file}!";
-    if( $tmpfile ) {
-        rename( $tmpfile, $self->{file} )
-            or croak "Could not rename $tmpfile to $self->{file}";
+    if( $self->{type} eq 'script' ) {
+        unlink $self->{name}
+            or carp "Couldn't unlink temporary file $self->{name}!";
+        if( $tmpfile ) {
+            rename( $tmpfile, $self->{name} )
+                or croak "Could not rename $tmpfile to $self->{name}";
+        }
     }
 
     # Did we die while running the testsuite?
@@ -367,7 +441,8 @@ sub run {
     my ($self, @entry) = @_;
 
     foreach my $entry (@entry) {
-        next unless $entry->result->[0] == 0;
+        next unless $entry->version ne $self->{version}
+                 or $entry->result->[0] == 0;
         $self->check($entry);
     }
     return;
@@ -380,6 +455,12 @@ sub run {
 =back
 
 =head1 METHODS: INDIVIDUAL TESTING
+
+This methods are used indirectly by the Games::Golf::TestSuite
+object. They are made available for the hole authors, so that
+they can easily write test suites in .glf files.
+
+=head2 Available tests for testing scripts
 
 These tests are C<Games::Golf::TestSuite> methods that hole
 makers can use in their hole test scripts.
@@ -405,12 +486,12 @@ function - including insecure arguments via filename.
 
 sub compile {
     my $self = shift;
-    my $file = $self->{file};
+    my $file = $self->{name};
 
     my (undef, $stderr, $exit) = $self->capture($^X, "-c $file");
 
     $self->{entry}->ok(!$exit, "Script doesn't compile!\n" . $$stderr );
-    die "compilation: compile() failed!" if $exit;
+    die "compilation: compile() failed!\n" . $$stderr if $exit;
 
     return $exit;
 }
@@ -444,7 +525,7 @@ sub aioee {
 
     # Dereference parameters
     foreach my $item ($input, $expect{qw<stdout stderr>}) {
-        next unless defined $item and ref $item ne "";    
+        next unless defined $item and ref $item ne "";
 
         die "Invalid reference given as a parameter"
             unless ref $item eq "SCALAR";
@@ -469,7 +550,7 @@ sub aioee {
 
     # Prepare command line
     #!!FIXME!! Shell version of quotemeta?
-    my $file = $self->{file};
+    my $file = $self->{name};
     my $cmd = qq("$^X" $file);
 
     # Execute command and capture
@@ -519,7 +600,7 @@ sub aioee {
         $mesg .= "Hint: Found $actual null characters (\\0), when should have have just $expect.\n"
             if $actual != $expect;
     }
-        
+
     # Check exit code
     $mesg .= "Wrong exit code, expected $expect{exit} but received $actual{exit}"
         if defined $expect{exit} and $expect{exit} != $actual{exit};
@@ -535,9 +616,33 @@ sub aioee {
     return;
 }
 
+=item $test->loop( @testdata );
+
+Given a list of array references that point to arguments in the
+correct format and order to feed to aioee(), this method
+loops on all the elements and runs aioee() on them.
+
+This feature prevent authors to write the now classic:
+
+ @tests = (
+     [ "", "input", "output", "errput", 0 ],
+     [ "", "in",    "out" ],
+ );
+
+ foreach my $set ( @tests ) {
+     $test->aioee( @$set );
+ }
+
+=cut
+
+sub loop {
+    my $self = shift;
+    for(@_) { $self->aioee( @$_ ) }
+}
+
 =back
 
-=head1 Available tests for testing subs
+=head2 Available tests for testing subroutines
 
 If the hole requires a sub, the testsuite must first create
 the sub with makesub(), and then can use it.
@@ -640,7 +745,7 @@ sub ok ($$$) {
     $self->{entry}->ok( $ok, $msg );
 }
 
-=head2 Other test for the code itself
+=head2 Other tests for the code itself
 
 These tests are C<Games::Golf::TestSuite> methods that hole
 makers can use in their hole test scripts.
@@ -684,11 +789,6 @@ sub not_match {
     # update the results
     $self->{entry}->ok( $code !~ /$regex/, $msg );
 }
-
-=item $test->not_op( $op );
-
-Test that the code in the entry doesn't use the given
-opcode. (TODO)
 
 =back
 
@@ -753,7 +853,7 @@ sub capture {
     eval {
         # The arch() accessor is not used on purpose
         @temp = $capture{$arch}->($self, @_);
-    };   
+    };
 
     # Exceptions are caught here for a reason... there
     # could be quite a lot of duplication otherwise.  I
@@ -897,7 +997,7 @@ sub _capture_unix {
             # Install signal handlers
             # !!FIXME!! Imagine we do the loop, and then die.  We could
             # receive the CHLD signal a miliseconds later, because we are
-            # no longer in this scope, the CHLD signal is proprogated 
+            # no longer in this scope, the CHLD signal is proprogated
             # until it terminates the program.
             local $SIG{CHLD} = sub { $reap = 1 };
 
@@ -979,12 +1079,12 @@ sub _capture_unix {
 
             # SIGALRM can hit here...
         };
-        # SIGALRM can hit here... 
+        # SIGALRM can hit here...
         die $@ if $@;
     };
     my $exception = $@;
 
-    # Purge zombies 
+    # Purge zombies
     eval {
         waitpid $pid, WNOHANG;
         $captured{exit} = ($? >> 8);
@@ -1001,57 +1101,72 @@ sub _capture_unix {
 =begin comment
 
 This method is the basic implementation of C<capture()> under Unix and
-Windows systems. It mainly uses redirections to capture STDOUT and STDERR.
-The first argument after $self is a boolean that says if the underlying
-OS supports the C<cmd 2E<gt>file> construct to capture STDERR to a file.
-If false, _capture_nolimit() will not try to use it.
+Windows systems. It mainly uses shell redirection for input (E<lt>)
+and dups STDERR to a file.
 
-This method is used by _capture_unix_nolimit(), _capture_winnt_nolimit()
-and _capture_win9x_nolimit().
+This works under Unix, Windows NT and Windows 9x.
+
+BUG: The exit code is always 0 under Windows 9x.
 
 =end comment
 
 =cut
 
 sub _capture_nolimit {
-    my ( $self, $has_stderr, $cmd, $args, $input ) = @_;
-    my ( $fh, $infile ) = tempfile($template);
-    my $errfile = mktemp($template);
+    my ( $self, $cmd, $args, $input ) = @_;
+    my $infile  = tmpnam;
+    my $errfile = tmpnam;
     my ( $out, $err ) = ( "", "" );
+    local *F;
+    local *OLDERR;
 
     # concatenate the command-line parameters
     $cmd .= " $args";
 
     # if there is some input
     if ($input) {
-        print $fh $$input;
+        local *F;
+        open F, "> $infile"
+          or croak "fatal: could not open temporay input file $infile: $!";
+        print F $$input;
+        close F;
         $cmd .= " < $infile";
     }
-    close $fh;
 
-    $cmd .= " 2> $errfile" if $has_stderr;
+    # swap errputs
+    open OLDERR, ">&STDERR"
+      or croak "fatal: could not duplicate STDERR: $!";
+    close STDERR;
+    open STDERR, "> $errfile"
+      or croak "fatal: could not open temporay errput file $errfile: $!";
 
     # run the command
     $out = `$cmd`;
 
+    # put things back to normal
+    close STDERR;
+    open STDERR, ">&OLDERR"
+      or croak "fatal: could not duplicate STDERR: $!";
+    close(OLDERR);
+
     # this is tedious, but...
-    if ($has_stderr) {
-        local $/;    # slurp
-        local *F;
-        open F, $errfile
-          or croak "fatal: could not open temporay errput file $errfile: $!";
-        $err = <F>;
-        close F;
-        unlink $errfile;
-    }
+    local $/;    # slurp
+    open F, $errfile
+      or croak "fatal: could not open temporay errput file $errfile: $!";
+    $err = <F>;
+    close F;
 
     # cleanup
-    unlink $infile;
+    if ($input) {
+        unlink $infile
+          or carp "warning: could not remove temporary input file $errfile: $!";
+    }
+    unlink $errfile
+      or carp "warning: could not remove temporary errput file $errfile: $!";
+
+    # !!FIXME!! status still doesn't work for Windows 9x
     return ( \$out, \$err, $? >> 8 );
 }
-
-# the unix implementation
-sub _capture_unix_nolimit { shift()->_capture_nolimit(1, @_); }
 
 =head2 Windows
 
@@ -1070,20 +1185,15 @@ specially for Windows/DOS.
 
 =cut
 
-# this is mostly the same a unix_nolimit,
-# since windows NT supports 2> notation and exit codes
-*_capture_winnt_nolimit = \&_capture_unix_nolimit;
-
-# Windows 9x doesn't support STDERR redirections
-sub _capture_win9x_nolimit {
-    _capture_nolimit( shift, 0, @_ );
-}
-
 1;
 
 __END__
 
 =head1 BUGS
+
+Some versions of ActiveState Perl do not set $? correctly, leading
+to incorrect exit status reported by capture(). AS 628 is known to
+have this problem.
 
 Please report all bugs to:
 

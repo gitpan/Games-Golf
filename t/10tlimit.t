@@ -3,7 +3,7 @@
 # Games::Golf::TestSuite methods: limit()
 # (This method is used by some of the low-level methods)
 #
-# $Id: 10tlimit.t,v 1.3 2002/05/14 16:43:30 book Exp $
+# $Id: 10tlimit.t,v 1.4 2002/05/22 18:57:50 book Exp $
 
 use strict;
 use Test;
@@ -18,23 +18,17 @@ my ( %limit, $temp );
 #        Check the constructor           #
 #----------------------------------------#
 
-eval { Games::Golf::TestSuite->new() };
-ok( $@, qr/^fatal: constructor needs two parameters/ );
+eval { Games::Golf::TestSuite->new( $TESTSUITE{broken} ) };
+ok( $@, qr/^fatal: failed to compile testsuite:/ );
 
-eval { Games::Golf::TestSuite->new( 1, 2, 3 ) };
-ok( $@, qr/^fatal: constructor needs two parameters/ );
-
-eval { Games::Golf::TestSuite->new( $TESTSUITE{broken}, 'broken.pl' ) };
-ok( $@, qr/^fatal: failed to compile testsuite for 'broken.pl':/ );
-
-$test = Games::Golf::TestSuite->new( $TESTSUITE{compile}, 'compile.pl' );
+$test = Games::Golf::TestSuite->new( $TESTSUITE{compile} );
 ok( ref $test, 'Games::Golf::TestSuite' );
 
 #----------------------------------------#
 #        Check the limit method          #
 #----------------------------------------#
 
-$test = Games::Golf::TestSuite->new( $TESTSUITE{compile}, 'compile.pl' );
+$test = Games::Golf::TestSuite->new( $TESTSUITE{compile} );
 %limit = $test->limit;
 
 # --- Check defaults ---
@@ -110,4 +104,4 @@ ok( $@, qr!Key/value pairs required when setting limits! );
 $temp = scalar $test->limit(stdout => undef);
 ok($temp, qr!^\d+/\d+$!); # Nobody should be doing this anyway
 
-BEGIN { plan tests => 29 }
+BEGIN { plan tests => 27 }

@@ -1,5 +1,39 @@
 Revision history for Perl extension Games::Golf.
 
+0.15  Sat Jun  1 2002
+
+   * Internals
+        - removed all non-essential non-core modules younger than 5.005
+          (i.e. replaced File::Temp back by POSIX tmpnam) [book]
+        - implement the correct stderr capture for win9x [amir/book]
+   * Games::Golf
+        - _parse_config_file parses the .glf file to create GGT objects,
+          fetch the configuration data, etc [jquelin/book]
+        - accessors to return configuration data (version, pgas) [book]
+        - parsing of tiebreaker section in .glf files [smueller]
+        - default tiebreaker/version/name in .glf files [book]
+   * Games::Golf::Entry
+        - made id() a method, rather than an accessor
+        - removed all tiebreaker code from GGE [book]
+        - added a version attribute, corresponding to the test version
+   * Games::Golf::TestSuite [book]
+        - changed new to accept the testsuite code as the only argument
+        - add a new loop method that runs aioee on many sets of args
+        - accessors to set/getconfiguration data (id, type, version, name)
+        - 'type' is used to know if we are testing a script or a sub
+          => compile and makesub are called automatically by check()
+             which abort the testsuite (result 0/1) if it breaks
+        - the version string from the .glf file is used by run() to test
+          if theGGE was tested against the current testsuite
+   * Tests [book]
+        - t/41tcheck.t now tests something
+        - t/50gaccess.t (GG new and accessors)
+        - t/55golf.t (general use of GG)
+        - more tests on Games::Golf interface
+   * Web site
+        - http://www.mongueurs.net/projets/games-golf/ offers all the
+          previous releases of Games-Golf, as well as an hourly CVS snapshot
+
 0.14a Wed May 15 2002
         - Corrected a slight pod bug that prevented search.cpan.org
           to extract Games::Golf::TestSuite's documentation

@@ -2,7 +2,7 @@
 #
 # Games::Golf::TestSuite methods: new() and accessors.
 #
-# $Id: 40taccess.t,v 1.4 2002/05/14 16:43:31 book Exp $
+# $Id: 40taccess.t,v 1.7 2002/05/23 17:16:00 book Exp $
 
 use strict;
 use Test;
@@ -37,5 +37,13 @@ $old = $test->arch( 'unix' );
 ok( $old, $arch );         # arch() returned the previous one
 ok( $test->arch, 'unix' ); # and set the new one
 
-BEGIN { plan tests => 7 }
+# the autoloaded accessors
+for my $key ( qw/ id version type name tiebreaker / ) {
+    my $method = "set_$key";
+    my $val = int rand 100;
+    $test->$method( $val );
+    ok( $test->$method(), $val );
+}
+
+BEGIN { plan tests => 12 }
 

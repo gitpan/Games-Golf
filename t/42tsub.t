@@ -2,7 +2,7 @@
 #
 # Games::Golf::TestSuite methods: makesub(), sub(), and ok()
 #
-# $Id: 42tsub.t,v 1.2 2002/05/14 00:03:04 book Exp $
+# $Id: 42tsub.t,v 1.3 2002/05/22 18:57:51 book Exp $
 
 use strict;
 use Test;
@@ -19,7 +19,8 @@ $entry = Games::Golf::Entry->new();
 #          Test makesub method           #
 #----------------------------------------#
 
-$test = Games::Golf::TestSuite->new( $TESTSUITE{makesub}, 'sub.pl' );
+$test = Games::Golf::TestSuite->new( $TESTSUITE{compile} );
+$test->set_type( 'sub' );
 
 # this is a valid subroutine
 $entry->code( 'my $self = shift; return @_;' );
@@ -48,6 +49,7 @@ ok( $result->[2], qr/^Subroutine doesn't compile!/ );
 #
 
 $test = Games::Golf::TestSuite->new( $TESTSUITE{testsub}, 'sub.pl' );
+$test->set_type( 'sub' );
 
 # An okay sub
 $entry->code( '++$_[0]' );

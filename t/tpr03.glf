@@ -1,13 +1,29 @@
 =begin conf
 
 PGAS = http://perlgolf.sourceforge.net/cgi-bin/PGAS/
-version = $Revision $
+version = $Revision: 1.7 $
+
+=end conf
+
+=begin tiebreaker alt-substr
+
+my $entry = shift;
+my $code  = $entry->code;
+$code =~ s/\r\n|\n\r/\n/g;         # Handle newlines the smart way.
+$code =~ s/\n+$//;                 # Free last newlines.
+$code =~ s{^#![-\w/.]+?perl}{};    # Shebang.
+my $tie  = ( () = $code =~ /\w+|\W+/g ) / (2*length $code);
+return $tie;
+
+=end tiebreaker
 
 =head1 The Monthly Course: Mathemathics
 
 =begin hole cantor
 
-id = 4
+id         = 4
+type       = script
+tiebreaker = alt-substr
 
 =end hole
 
@@ -76,14 +92,14 @@ my @tests = (
 );
 
 # Ok, here's the real thing.
-$test->compile;           # at least.
 foreach my $set ( @tests ) {
     $test->aioee( "", $set->[0], $set->[1], "", undef );
 }
 
 =begin hole kola
 
-id = 3
+id         = 3
+type       = script
 
 =end hole
 
@@ -135,7 +151,6 @@ my @tests = (
 );
 
 # Ok, here's the real thing.
-$test->compile;           # at least.
 foreach my $set ( @tests ) {
     $test->aioee( "", $set->[0], $set->[1], "", undef );
 }
@@ -291,102 +306,4 @@ If you want to be a referee next month, drop us a note:
 golf@theperlreview.com
 
 =cut
-
-# Change this if your scripts are at another location.
-# Remember that your scripts when tested by the referees
-# will be named cantor.pl and kola.pl
-my @scripts = qw/cantor.pl kola.pl/;
-
-
-#----------------------------------------------------------#
-#          You should not modify after this line.          #
-#----------------------------------------------------------#
-
-
-
-# Catching STDERR.
-my $ERR = "err.tmp";
-
-my (@skipped, @failed);
-HOLE:
-foreach my $script ( @scripts ) {
-    if (!-e $script) {
-        print "Skipped $script\n";
-        push @skipped, $script;
-        next;
-    }
-    foreach my $test ( @{$tests{$script}} ) {
-        # Prepare command.
-        my $cmd = qq("$^X" $script $test->[0] 2>$ERR);
-        print "Running '$cmd':\t";
-        my $out = `$cmd`;
-
-        # Check STDERR.
-        if ( -s $ERR ) {
-            print "oops, you wrote to stderr.\n";
-            open ERR, "<$ERR" or die $!;
-            local $/;               # slurp mode
-            my $err = <ERR>;        # dump error output.
-            close ERR;
-            unlink $ERR;
-            print "STDERR output:\n";
-            print  "--\n".$err."--\n";
-            print "Failed.\n";
-            push @failed, $script;
-            next HOLE;
-        }
-
-        # Check STDOUT.
-        if ( $out ne $test->[1] ) {
-            print "oops, wrong output.\n";
-            print "Expected:\n";
-            print "--\n".$test->[1]."--\n";
-            print "Got:\n";
-            print "--\n".$out."--\n";
-            unlink $ERR;
-            print "Failed.\n";
-            push @failed, $script;
-            next HOLE;
-        }
-        print "done.\n";
-    }
-}
-unlink $ERR;
-
-print "Skipped: @skipped\n" if @skipped;
-exit if @failed;
-print "Hooray, you passed.\n" unless @skipped;
-print "You shot a round of $total_score strokes.\n";
-print "(The decimal part is your tie break score.)\n";
-print "You can submit your solution at: http://perlgolf.sourceforge.net/cgi-bin/PGAS/leader.cgi?course=3\n" unless @skipped;
-exit;
-
-#
-# Compute golf score.
-sub get_golf_score {
-    my $script = shift;
-
-    my $code;
-    open F, "<$script" or die $!;
-    {
-        local $/;
-        $code = <F>;
-    }
-    close F;
-    
-    $code =~ s/\r/\n/g;
-    $code =~ s/\n+/\n/g;
-    $code =~ s/\n+$//;           # Free last newline.
-    $code =~ s/^#!\S*perl//;     # Shebang.
-    $code =~ s/\n//;             # Free first newline.
-    my $score = length $code;
-
-    # Compute tie-breaker.
-    my $tie  = ( () = $code =~ /\w+|\W+/g ) / (2*length $code);
-    $tie    = .49 if $tie > 0.49;
-    $score  += $tie;
-    return sprintf "%0.2f", $score;
-}
-
-__END__
 

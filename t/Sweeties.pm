@@ -20,13 +20,8 @@ use vars qw/ %TESTSUITE /;
              #         HERE mark in regex m/* << HERE /
         EOT
     # a mini testsuite to test Games::Golf::TestSuite
-    compile => << '        EOT',
-        $test->compile;
-        EOT
-    # this test suite tests subroutine code
-    makesub => '$test->makesub;',
+    compile => '$A++;',
     testsub => << '        EOT',
-        $test->makesub;
 
         # test that $A is modified when $_[0] is modified in the sub
         $A = 10;
@@ -37,7 +32,6 @@ use vars qw/ %TESTSUITE /;
         EOT
     # 
     hole3 => << '        EOT',
-        $test->compile;                       # ok
         $test->not_string( "\n" );            # not ok
         $test->not_string( "warn" );          # ok
         $test->not_match( qr/y(.).*\1.*\1/ ); # not ok
@@ -57,5 +51,13 @@ use vars qw/ %TESTSUITE /;
     aioeeX5 => '$test->aioee( "", "blah", undef, undef, 1024 );',
     # test aioee with a time limit
     limit  => '$test->aioee( "", "blah", "blah", undef, undef, time => 2 );',
+    # test the loop method
+    loop => << '        EOT',
+        @tests = (
+            [  "", "foo\nbar\nbaz\n",   "foo\nbar\nbaz\n" ],
+            [  "", "fim\nfang\nfoom\n", "boom\n" ],
+        );
+        $test->loop( @tests );
+        EOT
 );
 

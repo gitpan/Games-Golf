@@ -3,7 +3,7 @@
 # This program is free software; you can redistribute it and/or
 # modify it under the same terms as Perl itself.
 #
-# $Id: Entry.pm,v 1.36 2002/05/13 15:07:51 smueller Exp $
+# $Id: Entry.pm,v 1.40 2002/06/01 00:16:07 book Exp $
 #
 package Games::Golf::Entry;
 
@@ -18,12 +18,9 @@ use vars qw/ $AUTOLOAD $subs /;
 BEGIN {
     # add all registered accessors here
     my @subs = split /\|/,
-               $subs = 'author|email|hole|date|code|result|id';
+               $subs = 'author|email|hole|date|code|result|version';
     use subs @subs;
 }
-
-# declare a class attribute, which is defined later
-my %tiebreak;
 
 =head1 NAME
 
@@ -77,11 +74,11 @@ sub new {
         date        => "",
         hole        => "",
         code        => "",
+        version     => "",
         result      => [ 0, 0 ],
         tests       => [],
         status      => undef,
         score       => undef,
-        tiebreaker  => { },
         @_
     };
     bless $self, $class;
@@ -115,10 +112,12 @@ Return the date in a human-readable format: yyyy.mm.dd hh::mm::ss
 
 sub date_string {
     my $self = shift;
+    return "" unless $self->date;
+
     my ($sec,$min,$hour,$mday,$mon,$year) = localtime( $self->date );
     $mon++; $year += 1900;
-    return sprint( "%04d.%02d.%02d %02d:%02d:%02d",
-                   $year, $mon, $mday, $hour, $min, $sec );
+    return sprintf( "%04d.%02d.%02d %02d:%02d:%02d",
+                    $year, $mon, $mday, $hour, $min, $sec );
 }
 
 =back
@@ -171,10 +170,6 @@ passed. For example:
 
 Filename of the entry.
 
-=item id()
-
-MD5 sum of the file, to make caching easier.
-
 =back
 
 =cut
@@ -223,108 +218,6 @@ sub score {
     $code =~ s/^#!\S*perl//;     # Shebang.
     $self->{score} = length($code) - 1;    # Free first newline.
 }
-
-
-=item tiebreak( $tie, [ $tie2 , ... ] );
-
-Compute and return this entry tie-breaking scores.
-
-This method is meant to be used as an accessor.
-
-If C<$tie> is a string, it's used to look up one of the predefined
-tie-breaking values. If it's a coderef, the given subroutine is
-used to compute the tie-breaking value. This value is I<not> cached.
-
-Examples of use:
-
- # return the date tie-breaker
- $tie = $entry->tiebreak( "date" );
-
- # yet another way to break ties
- $tie = $entry->tiebreak( sub { rand } );
-
- # return both in a hash
- %tie = $entry->tiebreak( "date",  sub { rand } );
-
- # all predefined tie-breaking values
- %tie = $entry->tiebreak;
-
-Several tie-breaking routines are predefined. They are meant to be used
-as the decimal part of a score. So they should be such that the lower
-C<$entry-E<gt>score() + $entry-E<gt>tiebreak()>, the better the overall
-score is.
-
-=cut
-
-sub tiebreak {
-    my $self = shift;
-
-    # compute all values
-    if ( not keys %{ $self->{tiebreaker} } ) {
-        %{ $self->{tiebreaker} } =
-          map { ( $_, $tiebreak{$_}->($self) ) } keys %tiebreak;
-    }
-
-    # what did they ask for?
-    if ( @_ == 0 ) { return %{ $self->{tiebreaker} } }
-    my %ties = map {
-        my $tiebreak = $self->{tiebreaker}{$_};
-        if ( ref $_ eq 'CODE' ) {
-            $tiebreak = $_->($self);
-            # warning: this relies on $_ being an alias
-            $_ = 'userdefined';    # !!FIXME!! nothing better?
-        }
-        ( $_, $tiebreak );
-    } @_;
-
-    # return either a value, or a hash
-    return @_ == 1 ? $ties{ $_[0] } : %ties;
-}
-
-=pod
-
-The predefined tie-breaking values are:
-
-=over 4
-
-=item date
-
-The sooner the code is submitted, the better.
-This value is simply computed as YYYYMMDDhhmmss, or in POSIX strftime()
-parlance: C<"%Y%m%d%H%M%S">.
-
-=item weird
-
-The bigger the percentage of "weird characters", the better.
-Weird characters are defined as C<[^\w\s]>.
-
-!!FIXME!! 1 is an invalid value! It'll increase the score by one, if
-we use this tiebreaker in an addition. My proposition is to compute
-the percentage as the number of non weird char divied by score + 1.
-
-=back
-
-=cut
-
-%tiebreak = (
-    # !!FIXME!! to be defined!
-    date => sub {},
-
-    weird => sub {
-        my $entry = shift;
-        my $code  = $entry->code;
-        # !!FIXME!! Some code is duplicated in score()
-        # we might create a sub like morphcode() to handle these
-        $code =~ s/\r\n|\n\r/\n/g;         # Handle newlines the smart way.
-        $code =~ s/\n+$//;                 # Free last newlines.
-        $code =~ s{^#![-\w/.]+?perl}{};    # Shebang.
-        my $score = length($code) - 1;     # Free first newline.
-        $code =~ s/[^\w\s]//g;             # Strip weird chars.
-        $score = ( length($code) - 1 ) / $score;
-        return $score;
-    }
-
-);
 
 =item ok( $status, $msg )
 
