@@ -11,10 +11,8 @@
 # This program is free software; you can redistribute it and/or
 # modify it under the same terms as Perl itself.
 #
-# $Id: Golf.pm,v 1.12 2002/02/24 14:22:22 book Exp $
+# $Id: Golf.pm,v 1.15 2002/02/26 22:27:55 book Exp $
 #
-
-# !!FIXME!! this is not up-to-date pod.
 
 package Games::Golf;
 
@@ -28,7 +26,7 @@ use Games::Golf::Entry;
 
 # Variables of the module. blah
 local $^W = 1;    # use warnings for perl < 5.6
-$VERSION = '0.08';
+$VERSION = '0.09';
 
 =head1 NAME
 
@@ -107,9 +105,9 @@ sub new {
     my $class = shift;
     my $self  = {
         entries     => {},
-        holes       => [],
-        extract_dir => undef,
+	holes       => [],
         deadline    => undef,
+	referees    => [],
         @_
     };
     bless $self, $class;
@@ -134,20 +132,15 @@ sub extract {
 
     # Non-standard modules we rely on...
     eval "require Mail::Util;";
-    croak "Module Mail::Util required" if $@;
+    croak "Module Mail::Util required"  if $@;
     eval "require Date::Manip;";
     croak "Module Date::Manip required" if $@;
     import Mail::Util qw(read_mbox);    # !!FIXME!! non-unix mbox formats? OE?
     import Date::Manip qw(UnixDate);
 
-    # Check if destination directory exists.
-    defined $self->{extract_dir} && -d $self->{extract_dir}
-      or croak "Nowhere to extract scripts ($self->{extract_dir})";
-
     # Format deadline.
     defined $self->{deadline}
-      and $self->{deadline} =
-      UnixDate( $self->{deadline}, "%Y.%m.%d.%H.%M.%S" );
+      and $self->{deadline} = UnixDate( $self->{deadline}, "%Y.%m.%d.%H.%M.%S" );
 
     foreach my $mbox (@_) {
 
@@ -168,18 +161,30 @@ sub extract {
             my ( $name,    $nick, $category );
             my ( $extr_to, %id, %scripts );
 
-            foreach my $line (@$mail) {
+	    # Merge headers-to-be-continued.
+	    my $seen;
+	    foreach my $i (reverse 0..$#$mail) {
+		$mail->[$i] =~ /^$/ and $seen++;
+		next unless $seen;
+		$mail->[$i] =~ s/^\s+/ /  # remove \n of $mail->[$i-1]
+		  and substr $mail->[$i-1], -1, 1, $mail->[$i];
+	    }
+
+
+	    # Parse mail.
+	    foreach my $line ( @$mail ) {
                 chomp($line);
 
                 # Extract all that we can.
                 $line =~ /^From:.*?<?(\S+@[^>]+)/o   and $from     = $1;
-                $line =~ /^Date:\s*(.*)/o            and $date     = $1;
+                $line =~ /^Received:.*;([^;]+)/o     and $date     = $1;
                 $line =~ /^X-Golf-Name:\s*(.*)/o     and $name     = $1;
                 $line =~ /^X-Golf-Nick:\s*(.*)/o     and $nick     = $1;
                 $line =~ /^X-Golf-Category:\s*(.*)/o and $category = $1;
                 eval $code_end;    # check end of script.
                 defined $extr_to and $scripts{$extr_to} .= "$line\n";
                 eval $code_beg;    # check beginning of script.
+
             }
 
             # Check deadline.
@@ -188,7 +193,6 @@ sub extract {
 
             # Fill in the Games::Golf object.
             foreach my $key ( keys %scripts ) {
-
                 # Extract hole name.
                 my ( $hole, $ver ) = $key =~ /^(.*)\.(\d+)$/;
 
@@ -197,7 +201,7 @@ sub extract {
                 $nick or $nick = $name;
                 $date = UnixDate( $date, "%s" );
 
-                my $id = $nick . $scripts{$key};    # Compute unique id.
+                my $id = $nick . $scripts{$key};        # Compute unique id.
                 exists $self->{entries}{$id} and next;  # Uh, already submitted.
 
                 # Create new entry and store it.
@@ -210,10 +214,6 @@ sub extract {
                     code   => $scripts{$key}
                 );
 
-                # Store entry in a file.
-                open F, ">$date.$nick.$hole.$ver" or carp $!;
-                print F $scripts{$key};
-                close F;
             }
         }
     }
@@ -235,36 +235,36 @@ suite. And have an example of such a test.
 
 Dumps all entries in a single file.
 
-!!FIXME!! Should we enforce a special file, such as 
-"extracted/cache.entries" or so?
+Dies if there's a problem.
 
 =cut
 
 sub dump {
     my ( $self, $path ) = @_;
-    $path or return;    # !!FIXME!! default path? how to return error? die?
+    $path or return;
 
     # Module we rely upon.
     require Data::Dumper;
     import Data::Dumper qw(Dumper);
 
-    open DUMP, ">$path" or die $!;
+    # Open file and dump.
+    open DUMP, ">$path" or croak $!;
     print DUMP Dumper( $self->{entries} );
     close DUMP;
 }
 
-=item read( "/path/to/data" )
+=item load( "/path/to/data" )
 
 Reads a file with all previously recorded entries. See the C<dump>
 method. This initiates the cache mechanism.
 
-!!FIXME!! See above.
+Dies if there's a problem.
 
 =cut
 
-sub read {
+sub load {
     my ( $self, $path ) = @_;
-    $path or return;    # !!FIXME!! default path? how to return error? die?
+    $path or return;
     $self->{entries} = do $path;
 }
 
@@ -297,7 +297,6 @@ Interactive play for both a golfer and the arbiter.
 
 1;
 __END__
-
 
 =head1 ENVIRONMENT VARIABLES
 
@@ -350,12 +349,6 @@ C<Data::Dumper> to easily dump and fetch our entries.
 C<MD5> to implement our cache mechanism.
 
 =back
-
-=head1 BUGS
-
-Please report all bugs to:
-
-http://rt.cpan.org/NoAuth/Bugs.html?Dist=Games-Golf
 
 =head1 TODO
 

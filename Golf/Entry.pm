@@ -12,12 +12,12 @@
 # This program is free software; you can redistribute it and/or
 # modify it under the same terms as Perl itself.
 #
-# $Id: Entry.pm,v 1.13 2002/02/24 14:22:22 book Exp $
+# $Id: Entry.pm,v 1.17 2002/02/26 20:40:47 book Exp $
 #
 package Games::Golf::Entry;
 
 use strict;
-use vars qw/ $AUTOLOAD $VERSION $subs /;
+use vars qw/ $AUTOLOAD $subs /;
 
 BEGIN {
     # add all registered accessors here
@@ -31,19 +31,16 @@ use Carp;
 
 # Variables of the module.
 local $^W = 1;    # use warnings for perl < 5.6
-$VERSION = '0.08';
-
-use subs qw/ author email nick hole date code file id/;
 
 =head1 NAME
 
-Game::Golf::Entry - Single solution for a golf hole.
+Games::Golf::Entry - Single solution for a golf hole.
 
 =head1 SYNOPSIS
 
-  use Game::Golf;
+  use Games::Golf;
 
-  my $entry = new Game::Golf::Entry ( "hole.pl" );
+  my $entry = new Games::Golf::Entry ( "hole.pl" );
 
   $entry->test;
 
@@ -53,7 +50,7 @@ Game::Golf::Entry - Single solution for a golf hole.
 
 =head1 DESCRIPTION
 
-Internal object to be used by C<Game::Golf>. Each solution represents 
+Internal object to be used by C<Games::Golf>. Each solution represents 
 a single hole. 
 
 =head2 CONSTRUCTOR
@@ -62,7 +59,7 @@ a single hole.
 
 =item new( "author", "hole_name", "/path/to/solution/file" )
 
-Creates a new C<Game::Golf::Entry> object. You should pass the path to
+Creates a new C<Games::Golf::Entry> object. You should pass the path to
 the file that holds the solution.
 
 !!FIXME!! We should pass the hole name in order to know which test
@@ -108,23 +105,57 @@ All the accessors are autoloaded.
 
 =over 4
 
-=item author()         Full name of the author.
+=item author()
 
-=item email()          Author's nickname.
+Full name of the author.
 
-=item nick()           Author's nickname.
+=item email()
 
-=item hole()           The name of the hole this solution solves.
+Author's email address.
 
-=item date()           Date of the entry.
+=item nick()
 
-=item code()           The entry's code.
+Author's nickname.
 
-=item result()         The entry's test result.
+=item hole()
 
-=item file()           Filename of the entry.
+The name of the hole this solution solves.
 
-=item id()             MD5 sum of the file, to make caching easier.
+=item date()
+
+Date of the entry.
+
+=item code()
+
+The entry's code.
+
+=item result()
+
+The entry's test result. This is updated by the check() method of
+C<Games::Golf::TestSuite>.
+
+This structure is an array reference. The first parameter is the total
+number of tests taken. The second parameters is the number of tests passed.
+The rest of the array is the list of errors messages. C<""> means the test
+passed. For example:
+
+ $result = [
+     5,  # total number of tests taken
+     3,  # number of tests passed
+     "", # ok 1
+     "", # ok 2
+     "expected:\n--\n3--\ngot:\n--\n4--\n" # not ok 3
+     "", # ok 4
+     "", # ok 5
+ ];
+
+=item file()
+
+Filename of the entry.
+
+=item id()
+
+MD5 sum of the file, to make caching easier.
 
 =back
 
@@ -300,7 +331,7 @@ and/or modified under the same terms as Perl itself.
 
 =head1 SEE ALSO
 
-L<perl>, L<Game::Golf>.
+L<perl>, L<Games::Golf>.
 
 =cut
 

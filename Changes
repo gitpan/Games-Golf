@@ -1,8 +1,12 @@
-Revision history for Perl extension Game::Golf.
+Revision history for Perl extension Games::Golf.
+
+0.09  Tue Feb 26 2002
+	- new method ioee in Games::Golf::TestSuite
+	- removed version numbers except in Games/Golf.pm
 
 0.08  Sun Feb 24 2002
-        - an up to date README
-        - nothing more, this is just for CPAN
+	- an up to date README
+	- nothing more, this is just for CPAN
 
 0.07  Wed Feb 20 2002
 	- Games::Golf::TestSuite added
@@ -29,5 +33,5 @@ Revision history for Perl extension Game::Golf.
 
 0.01  Thu Feb  7 17:15:15 2002
 	- original version; created by h2xs 1.21 with options
-		-AX -n Game::Golf
+		-AX -n Games::Golf
 

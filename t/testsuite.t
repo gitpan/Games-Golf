@@ -1,3 +1,6 @@
+# -*- cperl -*-
+#
+
 use strict;
 use Test;
 
@@ -28,7 +31,7 @@ EOC
 my $result = $test->check( $entry );
 ok( $result->[0], 1 );
 ok( $result->[1], 0 );
-ok( $result->[2], qr/ follows nothing in regexp/ );
+ok( $result->[2], qr/ follows nothing / );
 
 # was the entry modified too?
 ok( $entry->result, $result );
@@ -52,7 +55,7 @@ $entry->code( '/*/' );
 $result = $test->check( $entry );
 ok( $result->[0], 4 );
 ok( $result->[1], 2 );
-ok( $result->[2], qr/ follows nothing in regexp/ );
+ok( $result->[2], qr/ follows nothing / );
 ok( $result->[3], "expected:\n--\n11--\ngot:\n--\n10--\n" );
 
 # does what's expected
@@ -82,4 +85,58 @@ ok( $result->[4], "" );
 ok( $result->[5], "Oops, your code matched (?-xism:y(.).*\\1.*\\1).\n" );
 ok( $result->[6], "" );
 
-BEGIN { plan tests => 27 }
+#----------------------------------------#
+#          Test the ioee stuff.          #
+#----------------------------------------#
+
+$test = Games::Golf::TestSuite->new( "t/hole4" );
+# $test->ioee( << 'EOI', << 'EOO', "" );
+# foo
+# bar
+# baz
+# EOI
+# foo
+# bar
+# baz
+# EOO
+# EOT
+
+# all is ok.
+$entry->code( << 'EOC' );
+#!/usr/bin/perl
+print while (<>);
+EOC
+
+$result = $test->check( $entry );
+ok( $result->[0], 2 );
+ok( $result->[1], 2 );
+ok( $result->[2], "" );
+ok( $result->[3], "" );
+
+# wrong output.
+$entry->code( << 'EOC' );
+#!/usr/bin/perl
+print uc while (<>);
+EOC
+
+$result = $test->check( $entry );
+ok( $result->[0], 2 );
+ok( $result->[1], 1 );
+ok( $result->[2], "" );
+ok( $result->[3], qr!\AOops, wrong output! );
+
+# wrong stderr.
+$entry->code( << 'EOC' );
+#!/usr/bin/perl
+print while (<>);
+END{ warn "End reached.\n" }
+EOC
+
+$result = $test->check( $entry );
+ok( $result->[0], 2 );
+ok( $result->[1], 1 );
+ok( $result->[2], "" );
+ok( $result->[3], qr!\AOops, wrong stderr! );
+
+
+BEGIN { plan tests => 39 }

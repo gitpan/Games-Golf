@@ -1,5 +1,7 @@
 # this test suite tests subroutine code
 $test->makesub;
+
+# test that $A is modified when $_[0] is modified in the sub
 $A = 10;
 $test->sub( $A );
 $test->ok( $A, 11 );
