@@ -1,13 +1,20 @@
 use ExtUtils::MakeMaker;
 
-# See lib/ExtUtils/MakeMaker.pm for details of how to influence
-# the contents of the Makefile that is written.
-
 WriteMakefile(
     'NAME'         => 'Games::Golf',
     'VERSION_FROM' => 'Golf.pm',
-    'PREREQ_PM'    => {},
-    'EXE_FILES'    => [ 'scripts/golf' ],
+    'PREREQ_PM'    => {
+        Carp           => 0.0,    # Minimums set to 5.005_03 vers
+        File::Basename => 2.6,
+        IO::File       => 1.08,
+        IO::Select     => 1.14,
+        IPC::Open3     => 1.0103,
+        POSIX          => 1.03,
+    },
+    'EXE_FILES'    => [
+        'scripts/golf',
+        'scripts/referee',
+    ],
     ( $] >= 5.005    # Add these new keywords supported since 5.005
     ? (
           ABSTRACT_FROM => 'Golf.pm',    # retrieve abstract from module

@@ -1,6 +1,74 @@
 #!/usr/bin/perl -w
 
 use strict;
+use Games::Golf;
+use Games::Golf::Entry;
+
+# A dirty way to fetch the name of the config file, but 
+# we'll refine it in further versions.
+my $cfg_file = ( glob "*.glf" )[0];
+
+my $golf = new Games::Golf( $cfg_file );
+$golf->load( "entries.dat" ); # hardconfig, should be changed.
+
+# Dirty configuration, should be refined later.
+my $hole   = ($cfg_file =~ m!([^/]+)\.glf\z! );
+my $author = "golfer";
+my $email  = 'golfer@perl.org';
+my $date   = localtime(time);
+my $code;
+open CODE, "<$hole.pl" or die $!;
+{
+    local $/;
+    $code = <CODE>;
+}
+
+# Create entry.
+my $entry = new Games::Golf::Entry
+  ( hole   => $hole,
+    author => $author,
+    email  => $email,
+    date   => $date,
+    code   => $code );
+
+$entry = $golf->add( $entry );
+
+# Check the cache.
+if ( $entry->results->[0] > 0 ) {
+    print "This entry has already been tested on ";
+    print $entry->date_string . ".\n";
+} else {
+    $golf->test;
+}
+
+
+print "Tests:  " . $entry->results->[0] . "\n";
+print "Passed: " . $entry->results->[1] . "\n";
+foreach my $i ( 0 .. $entry->results->[0] ) {
+    print "  test $i:";
+    print $entry->results->[$i+2] ? "\n".$entry->results->[$i+2] : "passed.";
+    print "\n";
+}
+
+if ( $entry->results->[0] == $entry->results->[1] ) {
+    print "Hooray, you passed.\n";
+} 
+
+print "You shot a round of ".$entry->score." strokes.\n";
+print "(The decimal part is your tie break score.)\n";
+print "You can submit your solution at: http://perlgolf.sourceforge.net/cgi-bin/PGAS/leader.cgi?course=3";
+
+$golf->dump( "entries.dat" );
+exit;
+
+
+__END__
+
+#===================================
+We're going to write the pod later.
+#===================================
+
+
 
 use Games::Golf::TestSuite;
 use Games::Golf::Entry;
@@ -50,6 +118,46 @@ golf - a script to test and submit entries to a Perl Golf Course
 B<golf> hole
 
 =head1 DESCRIPTION
+
+This program check that a golf script work accordingly to a test file
+provided by the organisers of a Perl Golf Competition.
+
+B<golf> can submit your entry to the Perl Golf Administration System
+(PGAS) that runs the competition, if it passes the test suite.
+
+B<golf> records your progress in a cache file. The main purpose of this
+cache file is to prevent resubmitting an already submitted entry.
+You should not erase the cache file during the course of a game,
+particularly if you use the autosubmit options.
+
+=head1 COMMAND-LINE ARGUMENTS
+
+All command-line arguments have a corresponding configuration file
+directive. The command-line arguments can be used to change the
+behaviour of the program.
+
+=over 4
+
+=item -I<n> E<lt>numberE<gt>
+
+Only print the diagnostics for the E<lt>numberE<gt> first failed tests.
+
+=item -I<q>
+
+Quiet. Only print the score, and the ratio of passed tests.
+
+=item -I<v>
+
+Verbose output. Print all the diagnostics for all failed tests.
+This is the default.
+
+=back
+
+=head1 SEE ALSO
+
+Games::Golf
+
+PGAS: http://perlgolf.sf.net/
 
 =head1 TODO
 

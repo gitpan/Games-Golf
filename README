@@ -16,7 +16,8 @@ a suite of very simple tests.
 WARNING
 
 This module and the accompanying scripts are *not* usable yet!
-This is a pre-alpha release.
+This is a pre-alpha release. The documentation can be very inaccurate
+in some places. Read the source, Luke.
 
 INSTALLATION
 
@@ -30,7 +31,6 @@ To install this module type the following:
 AUTHORS
 
 Philippe 'BooK' Bruhat <book@cpan.org>
-Dave Hoover            <dave@redsquirreldesign.com>
 Steffen Müller         <games-golf@steffen-mueller.net>
 Jonathan E. Paton      <jonathanpaton@yahoo.com>
 Jérôme Quelin          <jquelin@cpan.org>

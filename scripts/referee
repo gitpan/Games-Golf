@@ -1,0 +1,124 @@
+#!/usr/bin/perl -w
+#
+
+use strict;
+use Games::Golf;
+use Getopt::Long;
+
+my $cfg_file  = "./.glf";
+my $data_file = "./entries.dat";
+use vars qw($deadline @holes %opts %referees);
+$|++; # Pretty output.
+
+# Check if it's the first time we launch the test program.
+do {
+    print "Oh-oh, I can smell a new golf tournament.\n";
+    print "Let me ask you some questions to configure it.\n\n";
+    configure();
+} unless -f $cfg_file;
+
+# Read configuration.
+do $cfg_file;
+
+process_options();
+
+# Re-configuring.
+defined($opts{configure}) and configure(), exit;
+
+# The root object.
+print "Creating new instance of Games::Golf... ";
+my $golf = new Games::Golf
+  ( referees => \%referees,
+    holes    => \@holes,
+    deadline => $deadline,
+  );
+print "done.\n";
+
+# Fetching entries already processed.
+print "Fetching previous entries... ";
+-f $data_file and $golf->load($data_file);
+print "done.\n";
+
+# Processing mail box.
+if ( $opts{extract} ) {
+    print "Processing $opts{extract}... ";
+    $golf->extract( $opts{extract} );
+    print "done.\n";
+}
+ 
+# Checking entries.
+if ( $opts{test} ) {
+    print "Checking entries... ";
+    $golf->test( );
+    print "done.\n";
+}
+
+
+print "Dumping the object for further utilizations... ";
+$golf->dump($data_file);
+print "done.\n";
+
+exit;
+
+
+#---------------------------------#
+#          Private subs.          #
+#---------------------------------#
+
+#
+# Ask & Store configuration
+sub configure {
+    my $finished = 0;
+    while ( not $finished ) {
+	print "Name of referee (void to stop): ";
+	my $name = <STDIN>;
+	redo unless defined $name; # ^D hit?
+	chomp($name);
+	last unless length $name;
+
+	print "Email of referee: ";
+	my $mail = <STDIN>;
+	redo unless defined $mail; # ^D hit?
+	chomp($mail);
+	redo unless length $mail;
+
+	$referees{$name} = $mail;
+    }
+
+    # Holes names.
+    print "Enter the holes names (separated by a space): ";
+    my $holes = <STDIN>;
+    exit unless defined $holes; # ^D hit?
+    chomp($holes);
+    @holes = split / /, $holes;
+	  
+    # Deadline.
+    my $date;
+    do {
+	print "Enter deadline of the contest (yyyy.mm.dd.hh.mm.ss): ";
+	$date = <STDIN>;
+	exit unless defined $date; # ^D hit?
+	chomp($date);
+    } while ( $date !~ /^\d\d\d\d\.\d\d\.\d\d\.\d\d\.\d\d\.\d\d$/ );
+    $deadline = $date;
+
+    # Store config.
+    open CONF, ">$cfg_file" or die "Cannot open '$cfg_file': $!";
+    print CONF "\$deadline = q{$deadline};\n";
+    print CONF "\@holes  = qw{@holes};\n";
+    print CONF "\%referees = (\n";
+    print CONF map "q{$_} => q{$referees{$_}},\n", keys %referees;
+    print CONF ");\n";
+    close CONF;
+}
+
+#
+# Process options.
+sub process_options {
+  Getopt::Long::Configure('no_auto_abbrev', 'bundling', 'no_ignore_case', 'no_pass_through');
+    GetOptions( \%opts,
+		"configure|C", "extract|e=s", "test|t",
+	      ) or print_usage();
+}
+
+__END__

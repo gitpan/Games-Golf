@@ -1,5 +1,0 @@
-$test->compile;                       # ok
-$test->not_string( "\n" );            # not ok
-$test->not_string( "warn" );          # ok
-$test->not_match( qr/y(.).*\1.*\1/ ); # not ok
-$test->not_match( 'warn' );           # ok

@@ -1,39 +1,29 @@
 #-*- perl -*-
 #
-# Copyright (c) 2002
-#          Philippe 'BooK' Bruhat <book@cpan.org>
-#          Dave Hoover            <dave@redsquirreldesign.com>
-#          Steffen Müller         <games-golf@steffen-mueller.net>
-#          Jonathan E. Paton      <jonathanpaton@yahoo.com>
-#          Jérôme Quelin          <jquelin@cpan.org>
-#          Eugène Van der Pijll   <E.C.vanderPijll@phys.uu.nl>
-# All rights reserved.
-#
 # This program is free software; you can redistribute it and/or
 # modify it under the same terms as Perl itself.
 #
-# $Id: Entry.pm,v 1.28 2002/03/10 02:37:12 book Exp $
+# $Id: Entry.pm,v 1.36 2002/05/13 15:07:51 smueller Exp $
 #
 package Games::Golf::Entry;
 
+use 5.005;
 use strict;
+local $^W = 1; # Enable warnings the old way
+
+use Carp;
+
 use vars qw/ $AUTOLOAD $subs /;
 
 BEGIN {
     # add all registered accessors here
     my @subs = split /\|/,
-               $subs = 'author|email|nick|hole|date|code|result|id';
+               $subs = 'author|email|hole|date|code|result|id';
     use subs @subs;
 }
 
 # declare a class attribute, which is defined later
 my %tiebreak;
-
-# Modules we rely upon.
-use Carp;
-
-# Variables of the module.
-local $^W = 1;    # use warnings for perl < 5.6
 
 =head1 NAME
 
@@ -84,7 +74,6 @@ sub new {
     my $self  = {
         author      => "",
         email       => "",
-        nick        => "",
         date        => "",
         hole        => "",
         code        => "",
@@ -105,7 +94,36 @@ sub new {
 
 =head2 ACCESSORS
 
-All the accessors are autoloaded.
+=over 4
+
+=item id()
+
+Return a unique id of the current entry.
+
+=cut
+
+sub id {
+    my $self = shift;
+    return $self->author . $self->code;
+}
+
+=item date_string()
+
+Return the date in a human-readable format: yyyy.mm.dd hh::mm::ss
+
+=cut
+
+sub date_string {
+    my $self = shift;
+    my ($sec,$min,$hour,$mday,$mon,$year) = localtime( $self->date );
+    $mon++; $year += 1900;
+    return sprint( "%04d.%02d.%02d %02d:%02d:%02d",
+                   $year, $mon, $mday, $hour, $min, $sec );
+}
+
+=back
+
+All the following accessors are autoloaded.
 
 =over 4
 
@@ -116,10 +134,6 @@ Full name of the author.
 =item email()
 
 Author's email address.
-
-=item nick()
-
-Author's nickname.
 
 =item hole()
 
@@ -135,8 +149,8 @@ The entry's code.
 
 =item result()
 
-The entry's test result. This is updated by the ok() method, which should
-only be used by the check() method of C<Games::Golf::TestSuite> (do I make
+The entry's test result. This is updated by the C<ok()> method, which should
+only be used by the C<check()> method of C<Games::Golf::TestSuite> (do I make
 myself clear?).
 
 This structure is an array reference. The first parameter is the total
@@ -206,7 +220,7 @@ sub score {
 
     my $code = $self->{code};
     $code =~ s/\n$//;                  # Free last newline.
-    $code =~ s{^#![-\w/.]+?perl}{};    # Shebang.
+    $code =~ s/^#!\S*perl//;     # Shebang.
     $self->{score} = length($code) - 1;    # Free first newline.
 }
 
@@ -217,7 +231,7 @@ Compute and return this entry tie-breaking scores.
 
 This method is meant to be used as an accessor.
 
-If $tie is a string, it's used to look up one of the predefined
+If C<$tie> is a string, it's used to look up one of the predefined
 tie-breaking values. If it's a coderef, the given subroutine is
 used to compute the tie-breaking value. This value is I<not> cached.
 
@@ -235,7 +249,7 @@ Examples of use:
  # all predefined tie-breaking values
  %tie = $entry->tiebreak;
 
-Several tie-breaking score are predefined. They are meant to be used
+Several tie-breaking routines are predefined. They are meant to be used
 as the decimal part of a score. So they should be such that the lower
 C<$entry-E<gt>score() + $entry-E<gt>tiebreak()>, the better the overall
 score is.
@@ -314,16 +328,16 @@ the percentage as the number of non weird char divied by score + 1.
 
 =item ok( $status, $msg )
 
-B<WARNING:> This method should only be used in the Games::Golf::TestSuite
+B<WARNING:> This method should only be used in the C<Games::Golf::TestSuite>
 object.
 
-Updates the C<result> attribute of the Games::Golf::Entry object.
+Updates the C<result> attribute of the C<Games::Golf::Entry> object.
 
-If the test passed, $status should be true (and the message stored will
+If the test passed, C<$status> should be true (and the message stored will
 be empty).
 
-If the test failed, $status should be false, and a message
-should be given. If no message is given, ok() will store a default
+If the test failed, C<$status> should be false, and a message
+should be given. If no message is given, C<ok()> will store a default
 message in C<result>.  This means that you can be sure that if a message
 in C<result> is true, then the test failed.
 
@@ -364,21 +378,7 @@ Lots of stuff.
 
 =head1 AUTHORS
 
-=over 4
-
-=item Philippe 'BooK' Bruhat E<lt>book@cpan.orgE<gt>
-
-=item Dave Hoover            E<lt>dave@redsquirreldesign.comE<gt>
-
-=item Steffen Müller         E<lt>games-golf@steffen-mueller.netE<gt>
-
-=item Jonathan E. Paton      E<lt>jonathanpaton@yahoo.comE<gt>
-
-=item Jérôme Quelin          E<lt>jquelin@cpan.orgE<gt>
-
-=item Eugène Van der Pijll   E<lt>E.C.vanderPijll@phys.uu.nlE<gt>
-
-=back
+See AUTHORS file for the list of authors.
 
 =head1 COPYRIGHT
 

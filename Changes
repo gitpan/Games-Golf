@@ -1,5 +1,58 @@
 Revision history for Perl extension Games::Golf.
 
+0.14  Tue May 14 2002
+
+A lot of things have changed several times since 0.13...
+So many, in fact, that we had to break the Changes in several sections
+and add credits (in fact the owners of the items in the TODO)
+
+This should be a working version with no limits yet, supporting only
+single hole courses. Working on Unix and Windows. Ready for the public.
+
+   * Internals [jep/book]
+        - A whole new TestSuite architecture, based around the capture()
+          method
+        - capture() is based on various implementations, that depend on
+          the OS (Unix, Windows, etc.). All these are named _capture_xxx
+        - _capture_unix()
+        - _capture_unix_nolimit() is a minimal Unix capture method,
+          which capture() uses when no limit is required
+        - _capture_nolimit() is a minimal capture method, that can
+          capture STDERR or not. It is called by _capture_unix_nolimit,
+          _capture_winnt_nolimit and _capture_win9x_nolimit.
+        - _capture_win9x_nolimit carps about not being able to capture stderr
+   * Games::Golf [jquelin]
+        - code cleaning in Games::Golf (both code and interface)
+        - new method GG::_parse_config_file() (just a stub for now,
+          but will be a placeholder for later) to read config file
+        - GG has a working cache
+   * Games::Golf::Entry [jquelin]
+        - cut out in GGE: author&nick attributes redundant, nick has gone
+        - date is stored as seconds since epoch
+        - new method GGE::id()
+        - new method GGE::date_string()
+   * Games::Golf::TestSuite
+        - changed the GGT interface so that the constructor only accept
+          a code string, rather than a filename [book]
+        - fixed several bugs due to the interface of capture() and
+          _capture_xxx() [jep/book]
+        - removed POSIX tmpnam, and used File::Temp instead [book]
+   * Games::Golf::OS [book]
+        - this new module exports a few methods to help OS detection
+   * scripts/golf [jquelin]
+        - rewritten from scratch
+        - basic reading / testing / outputing / caching
+   * Tests [book]
+        - moved all the t/hole* snippets of testsuite code into the
+          t/Sweeties.pm file, that exports a hash holding all the
+          snippets
+        - tests for all the _capture_xxx methods, GGOS, and others
+        - added tpr02.glf and tpr03.glf (multi-hole) sample test files
+   * General [smueller]
+        - remove the looong authors lists, and create an AUTHORS file
+          (except in Golf.pm, the main file)
+        - fix the pod in many places
+
 0.13  Sun Mar 26 2002
         - Games::Golf::TestSuite::run doesn't retest already tested code
         - some changes in Games::Golf, which can handle several holes
@@ -54,6 +107,6 @@ Revision history for Perl extension Games::Golf.
 0.02  Fri Feb  8 2002
         - first revision
 
-0.01  Thu Feb  7 17:15:15 2002
+0.01  Thu Feb  7 2002
         - original version; created by h2xs 1.21 with options
               -AX -n Games::Golf
