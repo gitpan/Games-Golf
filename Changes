@@ -1,0 +1,33 @@
+Revision history for Perl extension Game::Golf.
+
+0.08  Sun Feb 24 2002
+        - an up to date README
+        - nothing more, this is just for CPAN
+
+0.07  Wed Feb 20 2002
+	- Games::Golf::TestSuite added
+	- more and more tests
+
+0.06  Sun Feb 10 2002
+	- missed one 3 arg open...
+
+0.05  Sun Feb 10 2002
+	- modified shebang-stripping regex
+	- changed 3 arg open to 2 arg version to make earlier
+	  Perls happy.
+
+0.04  Sat Feb  9 2002
+	- bug fixed
+	- added 5.005 compatibility
+
+0.03  Sat Feb  9 2002
+	- Games::Golf::Entry::score() added
+	- t/entry.t added
+
+0.02  Fri Feb  8 2002
+	- first revision
+
+0.01  Thu Feb  7 17:15:15 2002
+	- original version; created by h2xs 1.21 with options
+		-AX -n Game::Golf
+

@@ -1,0 +1,3 @@
+# a mini testsuite to test Games::Golf::TestSuite
+$test->compile;
+

@@ -1,0 +1,42 @@
+Game/Golf version 0.08
+======================
+
+The game of Perl golf is becoming increasingly popular. Holes frequently
+appear on Perl Monks, the Perl Review has an ongoing Perl Golf colunm,
+and the Fun with Perl mailing-list has run several very successful
+courses in the last few months, with great success.
+
+Until now, judges have had to write extensive test programs to check and
+score the players' entries along with compiling the leaderboard by hand.
+
+This module aims at facilitating the administration of Perl golf courses
+by writing a simple configuration file and writing the test programs as
+a suite of very simple tests.
+
+WARNING
+
+This module and the accompanying scripts are *not* usable yet!
+This is a pre-alpha release.
+
+INSTALLATION
+
+To install this module type the following:
+
+   perl Makefile.PL
+   make
+   make test
+   make install
+
+AUTHORS
+
+Philippe 'BooK' Bruhat <book@cpan.org>
+Dave Hoover            <dave@redsquirreldesign.com>
+Steffen Müller         <tsee@gmx.net>
+Jonathan E. Paton      <jonathanpaton@yahoo.com>
+Jérôme Quelin          <jerome.quelin@insalien.org>
+Eugène Van der Pijll   <E.C.vanderPijll@phys.uu.nl>
+
+COPYRIGHT AND LICENCE
+
+This module is free software. It may be used, redistributed
+and/or modified under the same terms as Perl itself.
