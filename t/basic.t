@@ -1,22 +1,8 @@
-#-*-perl-*-
-#
-
-#-----------------------------------#
-#          Initialization.          #
-#-----------------------------------#
-
-# Modules we rely on.
 use Test;
 
-BEGIN { plan tests => 1 };
+BEGIN { plan tests => 1 }
 
-# Vars.
+use Games::Golf;
+$loaded++;
 
-
-#--------------------------------#
-#          Basic tests.          #
-#--------------------------------#
-
-# Loading the module.
-eval { require Games::Golf; };
-ok($@, "");
+END { ok($loaded) }

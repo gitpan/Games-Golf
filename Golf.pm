@@ -11,7 +11,7 @@
 # This program is free software; you can redistribute it and/or
 # modify it under the same terms as Perl itself.
 #
-# $Id: Golf.pm,v 1.17 2002/02/27 20:52:43 book Exp $
+# $Id: Golf.pm,v 1.18 2002/03/05 00:25:15 book Exp $
 #
 
 package Games::Golf;
@@ -26,7 +26,7 @@ use Games::Golf::Entry;
 
 # Variables of the module. blah
 local $^W = 1;    # use warnings for perl < 5.6
-$VERSION = '0.10';
+$VERSION = '0.11';
 
 =head1 NAME
 

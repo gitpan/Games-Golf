@@ -1,0 +1,138 @@
+=head1 Overview
+
+"Perhaps I know more of these pursuers than you do. You fear them, but
+you do not fear them enough, yet."
+
+
+Games::Golf does not have adequate built-in safeguards
+against malicious player code.  Module users should make
+themselves familiar with the limitations - and make the
+appropriate allowances when using or creating scripts.
+
+The nature of golfing implies programs are rather cryptic
+character sequences, known as "line noise".  Good golfers
+pride themselves on lowering the Signal to Noise ratio to
+virtually zero.  Unfortunately, this means the difference
+between safe and malicious code can be almost impossible to
+identify.
+
+It is inevitable that the hosts of golf competitions will
+favour fully automated testing and submission.  Hopefully,
+this module will be used for implementing these systems,
+although an adequate security model will have to be
+devised.
+
+Perhaps, in the future many of the common security issues
+will be resolved.  Unfortunately, even when they are, the
+prudent should not rely on them.  In short, this module
+runs untrustworthy code without restriction and we deny
+responsibility for limiting the damage.  (For more
+information, please read the license).
+
+The security problems are numerous, and hopefully by now
+the reader is truly paranoid.  Below we address several
+specific concerns and how the risk might be averted.
+
+
+=head1 What you need
+
+"We cannot count on getting anything to eat between here and
+Rivendell, except what we take with us, and we ought to take plenty to
+spare."
+
+
+There are some essentials for running a secure system...
+
+=over 4
+
+=item o
+
+An unused computer
+
+=item o
+
+A secure operating system (not Windows)
+
+=item o
+
+time
+
+=item o
+
+knowledge
+
+=back
+
+The majority of users shall have either Windows or Unix,
+however when security becomes a serious concern Unix is the
+best bet.  The average Windows system is unrealistically
+geared towards a world devoid of security threats - and
+that utopia is slipping away daily.
+
+> Enlist help of others if not a Unix wizard
+
+> Welcome Windows security suggestions - despite the
+anti-recommend.
+
+
+=head1 A question of trust
+
+"...there are some folk in Bree who are not to be trusted."
+
+
+Test 
+
+The test suite for a particular hole is loaded via:
+
+my $test = Games::Golf::TestSuite->new("hole.t");
+
+where hole.t is a Perl script that implements the tests.
+
+We have not used the Safe module, yet the script is
+evaluated via eval().  This means that hole.t can change
+package variables in any package it pleases.
+
+Unless we use another scheme then you will need to ensure
+the safety of the hole.t script.  Hence, make sure that it
+cannot be modified according to the file permissions of the
+script under test.  We recommend that it is set to read
+only in the ownership of another user.
+
+
+=head1 Marking out the turf
+
+"We will all remain together and bar this window and the door."
+
+
+> chroot environment
+
+> user permissions (keep separate from the test script)
+
+> create a user/group account for testing
+
+
+=head1 Cutting connections
+
+"This is where we leave the open and take to cover"
+
+> firewall to restrict all ports
+
+> 
+
+
+=head1 Cleaning up
+
+"Hadn't we better clear out quick, Mr Strider?"
+
+
+> deleting temporaries and unwanted files after each
+iteration
+
+
+=head1 Miscellaneous
+
+"I had to study _you_ first, and make sure of you. The Enemy
+has set traps for me before now."
+
+
+=cut 

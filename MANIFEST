@@ -5,6 +5,7 @@ Golf/TestSuite.pm
 MANIFEST
 Makefile.PL
 README
+doc/security.pod
 t/basic.t
 t/entry.t
 t/hole0
@@ -12,4 +13,7 @@ t/hole1
 t/hole2
 t/hole3
 t/hole4
+t/hole5
+t/hole6
+t/hole7
 t/testsuite.t

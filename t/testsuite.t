@@ -89,6 +89,7 @@ ok( $result->[6], "" );
 #          Test the ioee stuff.          #
 #----------------------------------------#
 
+##-> Normal tests.
 $test = Games::Golf::TestSuite->new( "t/hole4" );
 # $test->ioee( << 'EOI', << 'EOO', "" );
 # foo
@@ -99,7 +100,6 @@ $test = Games::Golf::TestSuite->new( "t/hole4" );
 # bar
 # baz
 # EOO
-# EOT
 
 # all is ok.
 $entry->code( << 'EOC' );
@@ -138,5 +138,61 @@ ok( $result->[1], 1 );
 ok( $result->[2], "" );
 ok( $result->[3], qr!\AOops, wrong stderr! );
 
+##-> Check undef values.
+$test = Games::Golf::TestSuite->new( "t/hole5" );
+# $test->ioee( "blah", undef, undef, undef );
 
-BEGIN { plan tests => 39 }
+$entry->code( << 'EOC' );
+#!/usr/bin/perl
+print while (<>);
+END{ warn "End reached.\n" }
+EOC
+
+# Don't care about anything...
+$result = $test->check( $entry );
+ok( $result->[0], 1 );
+ok( $result->[1], 1 );
+ok( $result->[2], "" );
+
+##-> Check exit code.
+$test = Games::Golf::TestSuite->new( "t/hole6" );
+# $test->ioee( "blah", undef, undef, 17 );
+
+# Right exit code.
+$entry->code( << 'EOC' );
+#!/usr/bin/perl
+exit 17
+EOC
+
+$result = $test->check( $entry );
+ok( $result->[0], 1 );
+ok( $result->[1], 1 );
+ok( $result->[2], "" );
+
+# Wrong exit code.
+$entry->code( << 'EOC' );
+#!/usr/bin/perl
+exit 16
+EOC
+
+$result = $test->check( $entry );
+ok( $result->[0], 1 );
+ok( $result->[1], 0 );
+ok( $result->[2], qr!\AOops, wrong exit code.! );
+
+##-> Check time-out.
+$test = Games::Golf::TestSuite->new( "t/hole7" );
+# $test->ioee( "blah", "blah", undef, undef, time => 2 );
+
+# Sleep forever.
+$entry->code( << 'EOC' );
+#!/usr/bin/perl
+sleep;
+EOC
+
+$result = $test->check( $entry );
+skip( $^O eq 'MSWin32', $result->[0], 1 );
+skip( $^O eq 'MSWin32', $result->[1], 0 );
+skip( $^O eq 'MSWin32', $result->[2], "Oops, timed out while running script." );
+
+BEGIN { plan tests => 51 }

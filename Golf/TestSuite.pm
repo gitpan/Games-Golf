@@ -12,7 +12,7 @@
 # This program is free software; you can redistribute it and/or
 # modify it under the same terms as Perl itself.
 #
-# $Id: TestSuite.pm,v 1.18 2002/02/26 23:56:25 book Exp $
+# $Id: TestSuite.pm,v 1.22 2002/03/05 00:21:13 book Exp $
 #
 package Games::Golf::TestSuite;
 
@@ -23,10 +23,11 @@ use Carp;
 use File::Basename;
 use IO::Select;
 use IPC::Open3;
-use POSIX ":sys_wait_h";
+use POSIX qw(tmpnam);
 
 # Variables of the module.
 local $^W = 1;    # use warnings for perl < 5.6
+
 
 =head1 NAME
 
@@ -221,19 +222,19 @@ Given C<$in>, the script should output C<$out> on STDOUT, C<$err> on
 STDERR and return the exit code C<$exit>. If you don't care about any
 of the tree outputs (stdout, stderr or exit code), just pass C<undef>.
 
-You can pass further three limits to tune the test:
+You can also pass three optional limits to fine-tune the test:
 
 =over 4
 
-=item o
+=item time
 
 A time limit for each test (default 30 seconds).
 
-=item o
+=item stdout
 
 A data limit for stdout (default 1 megabyte).
 
-=item o
+=item stderr
 
 A data limit for stderr (default 1 megabyte).
 
@@ -247,9 +248,90 @@ input sets, since we do not check via select if we can write.
 sub ioee {
     my ( $self, $in, $out, $err, $exit ) = splice @_, 0, 5;
 
+    unless ( defined($out) or defined($err) or defined($exit) ) {
+	# Nothing to check: why the hell did the referee did this test?
+	# Return immediate success. !!FIXME!! or failure?
+	$self->{result}[0]++;
+	$self->{result}[1] = 1;        # !!FIXME!! for failure.
+	push @{ $self->{result} }, ""; # !!FIXME!! for failure.
+	return;
+    }
+
+    # Fetch file information.
+    my $file = $self->{file} . ".pl";
+    my $in_file  = tmpnam();
+    my $err_file = tmpnam();
+
+    my %restrict = 
+      ( time   => 30,		# 30 Seconds
+	stdout => 1000000,	# 1  Megabyte
+	stderr => 1000000,	# 1  Megabyte
+	@_
+      );
+    croak "Invalid parameters passed!"
+      unless (scalar keys %restrict == 3);
+
+    # Store input.
+    open IN, ">$in_file" or croak $!;
+    print IN $in;
+    close IN;
+
+    # Launch command.
+    my $stdout;
+    if ( $^O eq 'MSWin32' or
+	 not defined $restrict{time} ) {
+	# Windows... Sigh. Launch commands at your own risks.
+	# But you are already familiar with risks, since you
+	# run windows, aren't you? :)
+	$stdout = `$^X $file <$in_file 2>$err_file`;
+
+    } else {
+	# There's a unix smell near there...
+	# Let's play with alarms...
+	# !!FIXME!! Is there a way to make signal handlers local?
+	$SIG{ALRM} = sub { die "timeout"; };
+    
+	eval {
+	    alarm($restrict{time});
+	    $stdout = `$^X $file <$in_file 2>$err_file`;
+	    alarm(0);
+	};
+	if ($@) {
+	    if ($@ =~ /timeout/ ) {
+		# Timed out! 
+		# Bad guy who tried to stuck our machine.
+		$self->{result}[0]++;   # One more test.
+		$self->{result}[1] = 0; 
+		push @{ $self->{result} }, "Oops, timed out while running script.";
+		return;
+
+	    } else {
+		# We should not get there, should we?
+		alarm(0); # Clear the still pending alarm.
+		croak;	  # Propagate unexpected exception.
+	    }
+	}
+    }
+
+    # Fetch results.
+    my $ec = $? >> 8;
+    my $stderr;
+    {
+	local $/;
+	open ERR, "<$err_file" or croak $!;
+	$stderr = <ERR>;
+	close ERR;
+    }
+    unlink $in_file;  # We live in a clean world.
+    unlink $err_file; # Do not leave garbage.
+    
+
+=pod
+
     use constant SELECT_TIMEOUT => 0.05;
 
     my $file = $self->{file} . ".pl";
+    my ($pid, $ec);
 
     # Restrictions to apply
     my %restrict = 
@@ -265,12 +347,11 @@ sub ioee {
     # Storage for data read
     my ($stdout, $stderr) = ("", "");
 
-
     # Use exceptions
     eval {
         # Start code under test
 	local (*IN, *OUT, *ERR);
-	my $pid  = open3(\*IN, \*OUT, \*ERR, "$^X $file");
+	$pid  = open3(\*IN, \*OUT, \*ERR, "$^X $file");
 
 	# Use select to monitor filehandles
 	my $select = IO::Select->new;
@@ -280,8 +361,12 @@ sub ioee {
 	print IN $in;
 	close IN;
 
+	waitpid($pid, 0);
+	$ec = $? >> 8;
+
 	# Do reading
 	while ( my @ready = $select->can_read(SELECT_TIMEOUT) ) {
+
 	    foreach my $fh ( @ready ) {
 		# from STDOUT
 		if ($fh == \*OUT) {
@@ -294,6 +379,8 @@ sub ioee {
 		$select->remove($fh) if eof($fh);
 	    }
 	}
+	#waitpid($pid, 0);
+
 	close OUT;
 	close ERR;
     };
@@ -303,25 +390,33 @@ sub ioee {
     #	die $@;
     #}
 
+=cut
+
     # one more test.
     $self->{result}[0]++;
     my $success = 1;
     my $msg     = "";
 
-    if ( $stdout ne $out ) {
+    if ( defined($out) and $stdout ne $out ) {
 	# Ooops, wrong output.
 	$success = 0;
         $msg = "Oops, wrong output.\nExpected:\n--\n".$out."--\nGot:\n--\n".$stdout."--";
 
     } 
 
-    if ( $stderr ne $err ) {
+    if ( defined($err) and $stderr ne $err ) {
 	# Ooops, wrong stderr.
 	$success = 0;
         $msg = "Oops, wrong stderr.\nExpected:\n--\n".$err."--\nGot:\n--\n".$stderr."--";
     } 
 
-    # Test is ok.
+    if ( defined($exit) and $ec != $exit ) {
+	# Ooops, wrong exit code.
+	$success = 0;
+        $msg = "Oops, wrong exit code. Expected: $exit, got: $ec";
+    }
+
+    # Store result of the test.
     $self->{result}[1] += $success;
     push @{ $self->{result} }, $msg;
 }
