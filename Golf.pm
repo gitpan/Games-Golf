@@ -11,7 +11,7 @@
 # This program is free software; you can redistribute it and/or
 # modify it under the same terms as Perl itself.
 #
-# $Id: Golf.pm,v 1.23 2002/03/09 11:47:18 jep Exp $
+# $Id: Golf.pm,v 1.32 2002/03/25 16:19:10 smueller Exp $
 #
 
 package Games::Golf;
@@ -23,10 +23,11 @@ use vars qw/$VERSION/;
 # Modules we rely upon.
 use Carp;
 use Games::Golf::Entry;
+use Games::Golf::TestSuite;
 
 # Variables of the module. blah
 local $^W = 1;    # use warnings for perl < 5.6
-$VERSION = '0.12';
+$VERSION = '0.13';
 
 =head1 NAME
 
@@ -35,11 +36,12 @@ Games::Golf - Utilities to administer Perl Golf courses
 =head1 SYNOPSIS
 
   use Games::Golf;
-  my $golf = new Games::Golf ( referee      => "Bob the Referee",
-                              referee_mail => 'bob@referee.org'
-                              holes        => [ qw( name1 name2 ) ],
-                              deadline     => "2002/02/20",
-                              );
+  my $golf = new Games::Golf 
+      ( referees => { "Bob the Referee" => 'bob@referee.org',
+                      "Arbiter Jim"     => 'jim@arbiter.net' },
+        holes    => [ qw( name1 name2 ) ],
+        deadline     => "2002.02.20.13.27.20",
+      );
 
   $golf->read( "entries.dat" );
 
@@ -90,33 +92,42 @@ objects.
 
 Creates a new C<Games::Golf> object. Parameters are:
 
-  referee       Name of the referee.
-  referee_mail  Mail of the referee (where solutions will be sent).
+  referees      A hash ref for the referees. The keys are the names
+                of the referees, the values are the email addresses.
   deadline      Closing date of the game. Any format welcome.
   holes         Array ref to the names of the holes.
 
 =back
 
 =cut
-
 sub new {
 
     # Create the object, and bless it.
-    my $class = shift;
-    my $self  = {
-        entries     => {},
-        holes       => [],
-        deadline    => undef,
-        referees    => [],
-        @_
-    };
+    my $class    = shift;
+    my %args     = @_;
+
+    my $self     = {};
     bless $self, $class;
+
+    # get attribute keys and defaults.
+    my %defaults = _defaults();
+
+    # set attributes to passed attributes or to defaults.
+    foreach my $attr ( keys %defaults ) {
+        $self->{$attr} = exists $args{$attr} ? $args{$attr} : $defaults{$attr};
+    }
+
+    # Create the testsuite for each hole.
+    foreach my $hole ( @{ $self->{holes} } ) {
+        # !!FIXME!! why t/ ?
+        $self->{testers}{$hole} = new Games::Golf::TestSuite( "t/$hole" );
+    }
 
     # Return the new object.
     return $self;
 }
 
-=head2 METHODS
+=head2 PUBLIC METHODS
 
 =over 4
 
@@ -129,6 +140,7 @@ the C<Golf::Game> object not to extract already extracted entries.
 
 sub extract {
     my $self = shift;
+    my @new;
 
     # Non-standard modules we rely on...
     eval "require Mail::Util;";
@@ -146,12 +158,12 @@ sub extract {
 
         # Prepare strings to be eval'd.
         my $code_end = '$line =~ /^__END__/o and undef $extr_to;';
-        my $code_beg;
-        foreach my $hole ( @{ $self->{holes} } ) {
-            $code_beg .= '$line =~ /^' . $hole
-              . '/o and $extr_to = "' . $hole
-              . '.".++$id{' . $hole . '};';
-        }
+#          my $code_beg;
+#          foreach my $hole ( @{ $self->{holes} } ) {
+#              $code_beg .= '$line =~ /^' . $hole
+#                . '/o and $extr_to = "' . $hole
+#                . '.".++$id{' . $hole . '};';
+#          }
 
         # Read mbox.
         my @mails = read_mbox($mbox);
@@ -162,14 +174,15 @@ sub extract {
             my ( $extr_to, %id, %scripts );
 
             # Merge headers-to-be-continued.
-            my $seen;
-            foreach my $i (reverse 0..$#$mail) {
-                $mail->[$i] =~ /^$/ and $seen++;
-                next unless $seen;
+            my $last_line_header;
+            foreach my $i ( 0..$#$mail ) {
+                $last_line_header = $i, last
+                  if $mail->[$i] =~ /^$/;
+            }
+            foreach my $i ( 0..$last_line_header ) {
                 $mail->[$i] =~ s/^\s+/ /  # remove \n of $mail->[$i-1]
                   and substr $mail->[$i-1], -1, 1, $mail->[$i];
             }
-
 
             # Parse mail.
             foreach my $line ( @$mail ) {
@@ -178,13 +191,21 @@ sub extract {
                 # Extract all that we can.
                 $line =~ /^From:.*?<?(\S+@[^>]+)/o   and $from     = $1;
                 $line =~ /^Received:.*;([^;]+)/o     and $date     = $1;
-                $line =~ /^X-Golf-Name:\s*(.*)/o     and $name     = $1;
-                $line =~ /^X-Golf-Nick:\s*(.*)/o     and $nick     = $1;
-                $line =~ /^X-Golf-Category:\s*(.*)/o and $category = $1;
+                $line =~ /^Golfer: (.*)/o            and $name     = $1;
+                $line =~ /^Hole: (.*)/o              and $extr_to  = $1;
+#                  $line =~ /^X-Golf-Name:\s*(.*)/o     and $name     = $1;
+#                  $line =~ /^X-Golf-Nick:\s*(.*)/o     and $nick     = $1;
+#                  $line =~ /^X-Golf-Category:\s*(.*)/o and $category = $1;
                 eval $code_end;    # check end of script.
                 defined $extr_to and $scripts{$extr_to} .= "$line\n";
-                eval $code_beg;    # check beginning of script.
+#                  eval $code_beg;    # check beginning of script.
 
+            }
+
+            # pgas format.
+            foreach ( values %scripts ) {
+                # Black magic on alias.
+                s/\A.*__BEGIN__\n//s;
             }
 
             # Check deadline.
@@ -194,18 +215,19 @@ sub extract {
             # Fill in the Games::Golf object.
             foreach my $key ( keys %scripts ) {
                 # Extract hole name.
-                my ( $hole, $ver ) = $key =~ /^(.*)\.(\d+)$/;
+#                my ( $hole, $ver ) = $key =~ /^(.*)\.(\d+)$/;
+                my $hole = $key;
 
                 # Default values if not supplied.
                 $name or $name = $from;
                 $nick or $nick = $name;
-                $date = UnixDate( $date, "%s" );
 
                 my $id = $nick . $scripts{$key};        # Compute unique id.
                 exists $self->{entries}{$id} and next;  # Uh, already submitted.
 
-                # Create new entry and store it.
-                $self->{entries}{$id} = Games::Golf::Entry->new(
+                # Create new entry and store it
+                # in the Games::Golf object, and in the @new array
+                push @new, $self->{entries}{$id} = Games::Golf::Entry->new(
                     author => $name,
                     email  => $from,
                     nick   => $nick,
@@ -217,19 +239,38 @@ sub extract {
             }
         }
     }
+    return @new;
 }
 
 =item test()
 
-Tests entries of the game. A cache mechanism allows the Golf::Game
-object not to check already tested entries.
-
-!!FIXME!! We must now investigate further on the format of the test
-suite. And have an example of such a test.
+Tests the entries of the game. A cache mechanism (implemented in
+Games::Golf::TestSuite::run()) allows the Games::Golf object not to
+re-check already tested entries.
 
 =cut
 
-# sub test {}
+sub test {
+    my $self = shift;
+    foreach my $hole ( @{ $self->{holes} } ) {
+        my @entries = grep { $_->hole eq $hole } values %{ $self->{entries} };
+        $self->{testers}{$hole}->run(@entries);
+    }
+}
+
+=item test_all()
+
+Tests I<all> entries. Entries that were already tested will be tested
+again.
+
+=cut
+
+sub test_all {
+    my $self = shift;
+    foreach my $entry ( values %{ $self->{entries} } ) {
+        $self->{testers}{$entry->hole}->check( $entry );
+    }
+}
 
 =item dump( "/path/to/data" )
 
@@ -294,6 +335,32 @@ Interactive play for both a golfer and the arbiter.
 =cut
 
 # sub shel {}
+
+=head2 PRIVATE METHODS
+
+=over 4
+
+=item _defaults
+
+Returns a hash of allowed constructor attributes and their default values.
+
+=back
+
+=cut
+
+{
+    my %_defaults = (
+         entries     => {},
+         deadline    => undef,
+         referees    => {},
+         holes       => [],
+         testers     => {},
+    );
+    
+    sub _defaults {
+        return %_defaults;
+    }
+}
 
 1;
 __END__

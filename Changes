@@ -1,5 +1,11 @@
 Revision history for Perl extension Games::Golf.
 
+0.13  Sun Mar 26 2002
+        - Games::Golf::TestSuite::run doesn't retest already tested code
+        - some changes in Games::Golf, which can handle several holes
+          concurrently
+        - changes in the player script (golf) output
+
 0.12  Sun Mar 10 2002
         - major changes in ioee (renamed aioee)
         - basic tie-breaker functionnality

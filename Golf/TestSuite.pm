@@ -12,7 +12,7 @@
 # This program is free software; you can redistribute it and/or
 # modify it under the same terms as Perl itself.
 #
-# $Id: TestSuite.pm,v 1.46 2002/03/10 11:03:54 jep Exp $
+# $Id: TestSuite.pm,v 1.49 2002/03/13 07:22:21 book Exp $
 #
 package Games::Golf::TestSuite;
 
@@ -34,14 +34,21 @@ Games::Golf::TestSuite - An object that can run a suite of tests.
 
 =head1 SYNOPSIS
 
-  use Games::Golf::TestSuite;
+ use Games::Golf::TestSuite;
 
-  my $test   = new Games::Golf::TestSuite( "hole" );
-  my $result = $test->check( $entry );
+ my $test   = new Games::Golf::TestSuite( "hole" );
+
+ # try a list of Games::Golf::Entry objects against the test
+ # the tests will be run only on untested entries
+ $test->run ( @entries );
+ 
+ # tests a single entry, and return the result
+ my $result = $test->check( $entry );
 
 =head1 DESCRIPTION
 
 !!FIXME!!
+Games::Golf::TestSuite 
 
 =head2 Methods
 
@@ -183,14 +190,20 @@ sub limit {
 =item $test->run( @entries );
 
 Run the testsuite on the given list of Games::Golf::Entry objects.
-This method simply loops on C<@entries> with check() method.
+This method simply loops over C<@entries> with check() method.
+
+If the Games::Golf::Entry object has already been tested, it will not
+be tested again.
 
 =cut
 
 sub run {
-    my ($self, @entry) = @_;
-    $self->check($_) foreach (@entry);
-    return undef; # Protect against implicit return value
+    my ( $self, @entry ) = @_;
+    for my $entry (@entry) {
+        next if $entry->result->[0] > 0;
+        $self->check($entry);
+    }
+    return;
 }
 
 =item $test->check( $entry );
@@ -255,7 +268,7 @@ sub check {
 
 =back
 
-=head2 Available tests for testing scripts
+=head2 Available methods for testing scripts
 
 These tests are Games::Golf::TestSuite methods that hole makers can use
 in their hole test scripts.
@@ -295,6 +308,11 @@ input sets, since we do not check via select if we can write.
 =cut
 
 sub aioee {
+    # !!FIXME!!
+    # use IO::Select to fill stdin and read from wtdout and stderr
+    # use IPC::Open3 to read from the child process and have access
+    # to stderr on win32
+    # stdout and stderr limits can be enforced here
     my ( $self, $args, $in, $out, $err, $exit ) = @_;
 
     my ($timeout) = $self->limit("time");

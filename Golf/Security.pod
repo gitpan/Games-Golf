@@ -1,78 +1,83 @@
-=head1 Overview
+=head1 Introduction
 
-"Perhaps I know more of these pursuers than you do. You fear them, but
-you do not fear them enough, yet."
+"Perhaps I know more of these pursuers than you do. You fear them, but you do
+not fear them enough, yet."
 
+B<Games::Golf> does not have adequate safeguards against malicious code.  The
+onus to prevent damage rests upon the user, as per the license.
 
-Games::Golf does not have adequate built-in safeguards
-against malicious player code.  Module users should make
-themselves familiar with the limitations - and make the
-appropriate allowances when using or creating scripts.
+Perl golfing entails scripts composed of obfuscated character sequences, known
+as "line noise".  Good players pride themselves on keeping the Signal to Noise
+ratio as low as they can.  Unfortunately, the consequence is that the
+distinction between safe and malicious code may be blurred.
 
-The nature of golfing implies programs are rather cryptic
-character sequences, known as "line noise".  Good golfers
-pride themselves on lowering the Signal to Noise ratio to
-virtually zero.  Unfortunately, this means the difference
-between safe and malicious code can be almost impossible to
-identify.
+Automated testing and submission ought only to be done if the module has been
+supplemented by a good security model.  Some provision has been made for this,
+and shall be explained later in this document.
 
-It is inevitable that the hosts of golf competitions will
-favour fully automated testing and submission.  Hopefully,
-this module will be used for implementing these systems,
-although an adequate security model will have to be
-devised.
-
-Perhaps, in the future many of the common security issues
-will be resolved.  Unfortunately, even when they are, the
-prudent should not rely on them.  In short, this module
-runs untrustworthy code without restriction and we deny
-responsibility for limiting the damage.  (For more
-information, please read the license).
-
-The security problems are numerous, and hopefully by now
-the reader is truly paranoid.  Below we address several
-specific concerns and how the risk might be averted.
+To assist with improving security, below we shall discuss risks and how to
+avoid them.
 
 
-=head1 What you need
 
-"We cannot count on getting anything to eat between here and
-Rivendell, except what we take with us, and we ought to take plenty to
-spare."
+=head1 Getting started
+
+"We cannot count on getting anything to eat between here and Rivendell, except
+what we take with us, and we ought to take plenty to spare."
+
+A secure multi-user operating system, such as BSD, Linux or a commercial Unix,
+is called for.  The average Windows installation leans unrealistically towards
+a utopia world, one without the menace of crackers, viruses, worms, Trojans et
+all.  Unsurprisingly, we shall pay little attention to the Redmond giant's
+products within this discussion.
+
+Ideally, the responsibility for management (e.g. PGAS) is physically running on
+a different machine from those running the golf scripts.  An exemplar setup
+uses a star network configuration between the management system (server) and
+the test machines (clients).  The author suggests that these systems could be
+purchased inexpensively from a computer fair or auction.
+
+The systems used to execute the golf scripts should be unadorned with
+unnecessary features and program.  If possible, the operating system kernel
+should be complied or configured to have as little as possible (e.g. omit SysV
+shared memory).  Filesystems should also be mounted read only, or placed on a
+read-only medium such as CDR.  See your operating system documentation and the
+S<Further reading> section of this document for more information.
+
+A set of directores is required by the test system and the scripts being
+tested.  A suggested (relative) hierarchy is:
+
+   ./cache/ - cache directory
+   ./root/  - root filesystem for scripts
+              being tested (includes perl and libs)
+   ./suite/ - testsuites
+
+TODO: Cut my Perl, and install into here - working out 
+!!FIXME!! This is really README material.
+
+The author suggests the hierarchy should be located in subdirectory off the
+root directory called "golf".
 
 
-There are some essentials for running a secure system...
 
-=over 4
+=head1 Cutting and polishing a new perl
 
-=item o
+The typical perl installation comprises of "non-standard" modules, and Perl's
+platform dependant functions.  By comparison, most competition rules
+specify that scripts must be pure Perl, platform independent and not requiring
+modules other than those distributed as standard with perl.
 
-An unused computer
+Our solution to this problem is to build a new version of perl, which is installed 
+We must build a new perl to these restrictions we need to get our hands dirty, and rebuild
+perl
 
-=item o
+TODO: Information regarding how to build perl with things removed.  In
+particular, say what should be removed and kept in - on the basis of what would
+be implemented on the two standard golfing platforms - Windows and Unix.  Some
+other features such as networking should be suggested for omission since they
+generally are impractical for a golf competition.  We should note that if used
+in an obfuscation competition many of these should be left in.
 
-A secure operating system (not Windows)
-
-=item o
-
-time
-
-=item o
-
-knowledge
-
-=back
-
-The majority of users shall have either Windows or Unix,
-however when security becomes a serious concern Unix is the
-best bet.  The average Windows system is unrealistically
-geared towards a world devoid of security threats - and
-that utopia is slipping away daily.
-
-> Enlist help of others if not a Unix wizard
-
-> Welcome Windows security suggestions - despite the
-anti-recommend.
 
 
 =head1 A question of trust
@@ -80,23 +85,30 @@ anti-recommend.
 "...there are some folk in Bree who are not to be trusted."
 
 
-Test 
+=head2 Testsuite 
 
 The test suite for a particular hole is loaded via:
 
-my $test = Games::Golf::TestSuite->new("hole.t");
+my $test = Games::Golf::TestSuite->new("hole");
 
 where hole.t is a Perl script that implements the tests.
 
 We have not used the Safe module, yet the script is
-evaluated via eval().  This means that hole.t can change
+evaluated via eval(). This means that F<hole> can change
 package variables in any package it pleases.
 
 Unless we use another scheme then you will need to ensure
-the safety of the hole.t script.  Hence, make sure that it
+the safety of the F<hole> script. Hence, make sure that it
 cannot be modified according to the file permissions of the
-script under test.  We recommend that it is set to read
+script under test. We recommend that it is set to read
 only in the ownership of another user.
+
+On the other hand, F<hole> is the testsuite that is used
+for testing players entries. It is usually written by the
+referees. Which means that this file is dangerous if it
+was modified in transit, or if the organisers are themselves
+dangerous.
+
 
 
 =head1 Marking out the turf
@@ -111,6 +123,8 @@ only in the ownership of another user.
 > create a user/group account for testing
 
 
+
+
 =head1 Cutting connections
 
 "This is where we leave the open and take to cover"
@@ -118,6 +132,7 @@ only in the ownership of another user.
 > firewall to restrict all ports
 
 > 
+
 
 
 =head1 Cleaning up
@@ -129,10 +144,17 @@ only in the ownership of another user.
 iteration
 
 
+
 =head1 Miscellaneous
 
 "I had to study _you_ first, and make sure of you. The Enemy
 has set traps for me before now."
 
 
-=cut 
+
+=head1 Further reading
+
+www.linuxdoc.com - Security HOWTO
+www.linuxdoc.com - Securing RedHat Linux (Book)
+
+=cut

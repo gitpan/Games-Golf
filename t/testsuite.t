@@ -312,5 +312,30 @@ ok( $result->[2], qr!\AOops, wrong exit code.! );
 
 # we need tests for the a of aioee!
 
+#----------------------------------------#
+#        Test the run method             #
+#----------------------------------------#
+$test = Games::Golf::TestSuite->new( "t/hole6" );
+# $test->aioee( "", "blah", undef, undef, 17 );
+@temp = ();
 
-BEGIN { plan tests => 79 }
+# this one should not even compile
+push @temp, Games::Golf::Entry->new( code => "/*/" );
+
+# this one doesn't pass the only test
+push @temp, Games::Golf::Entry->new( code => << 'EOC' );
+#!/usr/bin/perl
+exit 17
+EOC
+
+# this entry should not be tested anyway
+$temp[0]->result( [ 4, 3 ] );
+
+$test->run( @temp );
+ok( $temp[0]->result->[0], 4 );
+ok( $temp[0]->result->[1], 3 );
+ok( $temp[1]->result->[0], 1 );
+ok( $temp[1]->result->[1], 1 );
+
+
+BEGIN { plan tests => 83 }

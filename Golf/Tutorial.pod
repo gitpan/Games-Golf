@@ -2,20 +2,43 @@
 
 So you want to host a Perl golf contest? These games can be quite
 successful: for example the golf game organised by The Perl Review
-volume 0 issue 1 had more than 100 players, and a total of 500 entries
-were submitted.
+volume 0 issue 1 had more than 100 players, and a total of about 600
+entries were submitted.
 
 So you need tools to run one of those fun and successful games.
 
-PGAS (Perl Golf A S) is such a tool. Based on Games::Golf, a serie
-of modules to help writing tests for golf games, it should make
-the 
+PGAS (Perl Golf Administration System) is such a tool. It may be used
+to host a Golf game and receive submission.
+
+Games::Golf is a series of modules to help writing tests for golf games,
+and it should make the organisation and administration of a golf course
+as easy as possible.
+
+=head1 Tools and features
+
+The Games-Golf distribution features several modules and scripts.
 
 =head2 Features for the organiser
 
+The Games::Golf::TestSuite module provide a series of methods to easily
+write test scripts, to help players write their entries.
+
+The testsuites can be used to test either scripts or subroutines.
+The testsuite files are used by the B<golf> and B<referee> scripts to
+check the validity of one or several entries. 
+
 =head2 Features for the referees
 
+The B<referee> script allows a referee to test players entries as a batch.
+It updates the information about all the entries in a cache, and 
+autmatically produces a leaderboard.
+
 =head2 Features for the players
+
+The B<golf> script lets a player test his entries before submitting them
+(through PGAS or via email). It keeps an history file, so that the player
+can browse through his old entries to find inspiration or look at his
+progress. Future tools might use this information too.
 
 =head1 Referee: Creating a test suite for use with Games::Golf
 
@@ -30,7 +53,11 @@ A typical test suite will look like this:
 
  # First test: the player script should at least compile
  $test->compile;
- $test->ioee( << INPUT, << OUTPUT, "", 0 );
+ # Second test:
+ # - no arguments to the script
+ # - for the given input, we wait for a specific output,
+ #   no errput, and an exit code of 0
+ $test->aioee( "", << INPUT, << OUTPUT, "", 0 );
  This is the input
  INPUT
  We wait for this output
@@ -42,9 +69,20 @@ Two methods are used only for scripts:
 
 =over 4
 
-=item compile
+=item compile()
 
-=item ioee
+Checks that the script at least compile. This is the most basic test
+that each entry should pass, and every testsuite should test.
+
+=item aioee()
+
+I<aioee> stands for I<a>rguments, I<i>nput, I<o>utput, I<e>rrput and
+I<e>xit code. The player's script is run with the given command-line
+arguments and standard input, and the test passes if the output, errput
+and exit code correspond to the method parameters.
+
+For the exit code, "" or C<undef> indicate that we don't care about its
+value.
 
 =back
 
@@ -54,11 +92,20 @@ Three methods are used only for subs:
 
 =over 4
 
-=item makesub
+=item makesub()
 
-=item sub
+Creates the sub. This is equivalent to the compile() method.
+A coderef is created with the given code. If all goes well, it should
+at least compile.
 
-=item ok
+=item sub( ... )
+
+Calls the subroutine with the given arguments.
+
+=item ok()
+
+Similar to the Test module ok() function, this method validates the result
+of the test.
 
 =back
 
@@ -68,9 +115,13 @@ The following methods are used to test the code itself:
 
 =over 4
 
-=item not_string
+=item not_string( $string )
 
-=item not_match
+Checks that the code doesn't contain the forbidden string $string.
+
+=item not_match( $regex )
+
+Checks that the code doesn't match the forbidden regex $regex.
 
 =back
 
@@ -83,6 +134,16 @@ and the size of stdout and stderr.
 =head1 Player
 
 =head2 Using the test script
+
+The testsuite works almost like a Perl script. The documentation for the
+hole (what you are supposed to do) should be available through the usual
+C<perldoc hole> command.
+
+C<golf hole> test the entry stored in the file F<hole.pl> against the
+testsuite held in F<hole>. Several command-line switches are available,
+for various needs.
+
+!!FIXME!! which switches?
 
 =head2 Using PGAS
 

@@ -9,20 +9,55 @@ use Getopt::Std;
 
 my $hole = shift;
 
-my $testsuite = Games::Golf::TestSuite->new( $hole );
+my $testsuite = Games::Golf::TestSuite->new($hole);
 
 open F, "< $hole.pl" or die "Can't open script $hole.pl";
 my $entry = Games::Golf::Entry->new;
 {
     local $/;
-    $entry->code( <F> );
+    $entry->code(<F>);
 }
 close F or die "Can't close $hole.pl";
 
-$testsuite->check( $entry );
+$testsuite->check($entry);
 
 my @result = @{ $entry->result };
-print "Passed $result[1]/$result[0] tests!\n",
-      map { sprintf "Test %3d failed\n", $_-1 if $result[$_] }
-      2 .. @result -2;
+
+my @failed;
+for ( 2 .. @result - 2 ) {
+    if ( $result[$_] ) {
+        print "Oops, you failed test $_.\n$result[$_]\n";
+        push @failed, $_;
+    }
+}
+
+print "You shot a round of ", $entry->score, " strokes.\n",
+      "You passed $result[1]/$result[0] tests!\n";
+{
+    local $" = ', ';
+    print @failed ? "Failed @failed.\n" : "Hooray, you passed.\n";
+
+}
+
+__END__
+
+=head1 NAME
+
+golf - a script to test and submit entries to a Perl Golf Course
+
+=head1 SYNPOSIS
+
+B<golf> hole
+
+=head1 DESCRIPTION
+
+=head1 TODO
+
+ * define command-line arguments
+ * read configuration file
+ * part of the configuration should be entered as comments in the hole
+   itself (e.g. PGAS-Server: http://perlgolf.sf.net/cgi-bin/submit.cgi)
+ * history autosave
+ * autosubmit options (requires autosave, to save only different stuff)
+   (duplicates should also be handled by PGAS)
 
