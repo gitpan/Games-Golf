@@ -1,11 +1,13 @@
 Changes
 Golf.pm
 Golf/Entry.pm
+Golf/Security.pod
 Golf/TestSuite.pm
+Golf/Tutorial.pod
 MANIFEST
 Makefile.PL
 README
-doc/security.pod
+scripts/golf
 t/basic.t
 t/entry.t
 t/hole0
@@ -16,4 +18,6 @@ t/hole4
 t/hole5
 t/hole6
 t/hole7
+t/mbox.secret
+t/secret
 t/testsuite.t

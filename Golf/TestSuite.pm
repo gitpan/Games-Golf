@@ -3,7 +3,7 @@
 # Copyright (c) 2002
 #          Philippe 'BooK' Bruhat <book@cpan.org>
 #          Dave Hoover            <dave@redsquirreldesign.com>
-#          Steffen Müller         <tsee@gmx.net>
+#          Steffen Müller         <games-golf@steffen-mueller.net>
 #          Jonathan E. Paton      <jonathanpaton@yahoo.com>
 #          Jérôme Quelin          <jquelin@cpan.org>
 #          Eugène Van der Pijll   <E.C.vanderPijll@phys.uu.nl>
@@ -12,7 +12,7 @@
 # This program is free software; you can redistribute it and/or
 # modify it under the same terms as Perl itself.
 #
-# $Id: TestSuite.pm,v 1.22 2002/03/05 00:21:13 book Exp $
+# $Id: TestSuite.pm,v 1.46 2002/03/10 11:03:54 jep Exp $
 #
 package Games::Golf::TestSuite;
 
@@ -28,20 +28,16 @@ use POSIX qw(tmpnam);
 # Variables of the module.
 local $^W = 1;    # use warnings for perl < 5.6
 
-
 =head1 NAME
 
 Games::Golf::TestSuite - An object that can run a suite of tests.
 
 =head1 SYNOPSIS
 
-  use Games::Golf;
+  use Games::Golf::TestSuite;
 
-  # "hole" is the file holding the test suite
-  my $test = new Games::Golf::TestSuite( "hole" );
-
-  # $entry is a Games::Golf::Entry object
-  $test->check( $entry );
+  my $test   = new Games::Golf::TestSuite( "hole" );
+  my $result = $test->check( $entry );
 
 =head1 DESCRIPTION
 
@@ -51,7 +47,7 @@ Games::Golf::TestSuite - An object that can run a suite of tests.
 
 =over 4
 
-=item $test = Games::Golf::TestSuite->new( 'hole.t' );
+=item $test = Games::Golf::TestSuite->new( "hole.t" );
 
 Constructs a Games::Golf::TestSuite object with the tests held in
 the file given as an argument.
@@ -65,7 +61,7 @@ A test suite is a perl script written as follow:
  $out  = 'the script expected output';
  $err  = '';    # don't expect anything on STDERR
  $exit = undef; # don't care for exit code
- $test->ioee( $in, $out, $err, $exit );
+ $test->aioee( $args, $in, $out, $err, $exit );
 
  # use other Games::Golf::TestSuite method
  # to create as many subtests as needed
@@ -76,15 +72,24 @@ sub new {
     my $class = shift;
     my $file  = shift;
     my $self  = bless {
-        file => $file,
-        hole => basename $file,
+        file  => $file,
+        hole  => basename($file),
+        limit => {
+            time   => undef,
+            stdout => undef,
+            stderr => undef,
+            opcode => undef,
+          },
     }, $class;
 
     # read the code from the file
-    local $/ = undef;
-    open F, "< $file" or croak "Can't open $file: $!";
-    my $testsuite = <F>;
-    close F;
+    my $testsuite;
+    {
+        local $/ = undef;
+        open TESTSUITE, "< $file" or croak "Can't open testsuite file '$file': $!";
+        $testsuite = <TESTSUITE>;
+        close TESTSUITE or carp "Could not close testsuite file '$file': $!";
+    }
 
     # create the coderef
     $self->{testsuite} = eval << "    EOT";
@@ -96,16 +101,83 @@ sub new {
         package Games::Golf::TestSuite::Sandbox;
         # insert the test code
         $testsuite;
-        # return the results
-        \$test->{result};
     }
     EOT
 
-    # $@ holds the compilation errors
+    # report the compilation errors
     croak "Can't compile $file: $@" if $@;
 
     # Return the new object.
     return $self;
+}
+
+=item $test->limit( time => 30, stdout => 1024, stderr => 1024 );
+
+Sets limits on the scripts under test.
+
+!!FIXME!! More documentation here.
+
+=over 4
+
+=item time
+
+A time limit for each test (default unlimited).
+
+=item stdout and stderr
+
+A data limit for stdout and stderr (default unlimited).
+
+=back
+
+=cut
+
+sub limit {
+    my $self = shift;
+
+    # Get all attributes if there are no parameters.
+    if (@_ == 0) {
+        return %{ $self->{limit} };
+    }
+
+    # Get named attribute if one parameter given.
+    elsif (@_ == 1) {
+        my $attr = lc(shift) || "undef";
+
+        if (exists $self->{limit}{$attr}) {
+            return $self->{limit}{$attr};
+        }
+        else {
+            croak "Invalid limit type: $attr";
+        }
+    }
+
+    # otherwise set attributes and return previous values...
+    elsif (@_ % 2 == 0) {
+        my %prev = $self->limit();
+
+        while (@_ > 0) {
+            my ($attr, $value) = splice (@_, -2);
+            $attr = lc $attr || "undef";
+
+            if ($attr eq "time" or $attr eq "stdout" or $attr eq "stderr") {
+                croak "Invalid limit value '$value' for $attr"
+                    if defined $value and $value !~ /^\d+$/;
+                $self->{limit}{$attr} = $value;
+            }
+            elsif ($attr eq "opcode") {
+                carp "Opcode limit not implemented";
+            }
+            else {
+                croak "Invalid limit type: $attr";
+            }
+        }
+        return %prev;
+    }
+
+    # but reject unless they come in pairs.
+    else {
+        croak "Key/value pairs required when setting limits";
+    }
 }
 
 =item $test->run( @entries );
@@ -116,9 +188,9 @@ This method simply loops on C<@entries> with check() method.
 =cut
 
 sub run {
-    my $self    = shift;
-    my @entries = @_;
-    for my $entry (@entries) { $self->check( $entry ) }
+    my ($self, @entry) = @_;
+    $self->check($_) foreach (@entry);
+    return undef; # Protect against implicit return value
 }
 
 =item $test->check( $entry );
@@ -130,45 +202,55 @@ of the C<Games::Golf::Entry> object is updated.
 =cut
 
 sub check {
-    my $self  = shift;
-    my $entry = shift;
+    my ( $self, $entry ) = @_;
 
     no strict 'refs';
     local $^W;    # don't warn about redefined subs
 
     # cleanup before
-    delete @{$self}{ 'code', 'sub' };
-    $self->{result} = [ 0, 0 ];
+    delete @{$self}{ 'code', 'sub', 'entry' };
     *{"Games::Golf::TestSuite::Sandbox::$self->{hole}"} = sub { };
 
-    # store the $entry code in $self->{code}
-    $self->{code} = $entry->code;
+    # store various data related to the Entry
+    $self->{entry} = $entry;
+    $self->{code}  = $entry->code;
+    $entry->result( [ 0, 0 ] );
 
     # save the code to a file
+    # and make sure we don't destroy a file by the same name
+    my $tmpfile = '';
+    if( -e "$self->{file}.pl" ) {
+        # rename the file
+        $tmpfile = "$self->{file}." . time;
+        rename( "$self->{file}.pl", $tmpfile )
+            or croak "Could not rename $self->{file}.pl to $tmpfile";
+    }
     open F, "> $self->{file}.pl" or croak "Can't open $self->{file}.pl: $!";
     print F $entry->code;
     close F;
 
     # run the testsuite (emulating a method call)
-    my $result;
     {
         no strict;
         local $^W;
-        $result = &{ $self->{testsuite} } ($self);
+        $self->{testsuite}($self);
     }
-
-    # set the result in the Games::Golf::Entry object
-    $entry->result($result);
 
     # cleanup after
     # !!FIXME!! duplicated code
-    delete @{$self}{ 'code', 'sub' };
-    $self->{result} = [ 0, 0 ];
+    delete @{$self}{ 'code', 'sub', 'entry' };
     *{"Games::Golf::TestSuite::Sandbox::$self->{hole}"} = sub { };
-    unlink "$self->{file}.pl";
 
-    # return the results
-    return $result;
+    # put things back to normal
+    unlink "$self->{file}.pl"
+        or carp "Couldn't unlink temporary file $self->{file}.pl!";
+    if( $tmpfile ) {
+        rename( $tmpfile, "$self->{file}.pl" )
+            or croak "Could not rename $tmpfile to $self->{file}.pl";
+    }
+
+    # return the results from the Games::Golf::Entry object
+    return $entry->result;
 }
 
 =back
@@ -191,85 +273,43 @@ sub compile {
     my $self = shift;
     my $file = $self->{file} . ".pl";
 
-    # !!FIXME!! does in work under Win32?
-    # couldn't we fork a child and read its STDERR
-    # directly?
-    #  use POSIX qw(tmpnam)
-    my $result = qx($^X -c $file 2>err.tmp);
-
-    open ERR, "<err.tmp" or return $!;
-    local $/;
-    my $err = <ERR>;
-    close ERR;
-    unlink "err.tmp";
-
-    # one more test
-    $self->{result}[0]++;
+    qx("$^X" -c $file);
+    my $exit = $? >> 8;
 
     # Did it work?
-    if ( $err =~ /syntax OK/ ) {
-        $self->{result}[1]++;
-        push @{ $self->{result} }, "";
-    }
-    else {
-        push @{ $self->{result} }, $err;
-    }
+    # !!FIXME!! How do we get the full error message, now?
+    $self->{entry}->ok( !$exit, "Script doesn't compile!" );
 }
 
-=item $test->ioee( $in, $out, $err, $exit, time => $time, stdout => $limit, stderr => $limit );
+=item $test->aioee( $args, $in, $out, $err, $exit );
 
-Given C<$in>, the script should output C<$out> on STDOUT, C<$err> on
-STDERR and return the exit code C<$exit>. If you don't care about any
-of the tree outputs (stdout, stderr or exit code), just pass C<undef>.
+Given C<$args> and C<$in>, the script should output C<$out> on STDOUT,
+C<$err> on STDERR and exit with code C<$exit>. If you don't care about
+any of the three outputs (stdout, stderr or exit code), just pass C<"">
+or C<undef> instead.
 
-You can also pass three optional limits to fine-tune the test:
-
-=over 4
-
-=item time
-
-A time limit for each test (default 30 seconds).
-
-=item stdout
-
-A data limit for stdout (default 1 megabyte).
-
-=item stderr
-
-A data limit for stderr (default 1 megabyte).
-
-=back
 
 B<WARNING!> This sub is a minimal workaround, and may deadlock on big
 input sets, since we do not check via select if we can write.
 
 =cut
 
-sub ioee {
-    my ( $self, $in, $out, $err, $exit ) = splice @_, 0, 5;
+sub aioee {
+    my ( $self, $args, $in, $out, $err, $exit ) = @_;
+
+    my ($timeout) = $self->limit("time");
 
     unless ( defined($out) or defined($err) or defined($exit) ) {
-	# Nothing to check: why the hell did the referee did this test?
-	# Return immediate success. !!FIXME!! or failure?
-	$self->{result}[0]++;
-	$self->{result}[1] = 1;        # !!FIXME!! for failure.
-	push @{ $self->{result} }, ""; # !!FIXME!! for failure.
-	return;
+        # Nothing to check: why the hell did the referee did this test?
+        # Return immediate success. !!FIXME!! or failure?
+        $self->{entry}->ok( 1 );
+        return;
     }
 
     # Fetch file information.
     my $file = $self->{file} . ".pl";
     my $in_file  = tmpnam();
     my $err_file = tmpnam();
-
-    my %restrict = 
-      ( time   => 30,		# 30 Seconds
-	stdout => 1000000,	# 1  Megabyte
-	stderr => 1000000,	# 1  Megabyte
-	@_
-      );
-    croak "Invalid parameters passed!"
-      unless (scalar keys %restrict == 3);
 
     # Store input.
     open IN, ">$in_file" or croak $!;
@@ -278,49 +318,48 @@ sub ioee {
 
     # Launch command.
     my $stdout;
-    if ( $^O eq 'MSWin32' or
-	 not defined $restrict{time} ) {
-	# Windows... Sigh. Launch commands at your own risks.
-	# But you are already familiar with risks, since you
-	# run windows, aren't you? :)
-	$stdout = `$^X $file <$in_file 2>$err_file`;
+    my $cmd = qq("$^X" $file $args <$in_file 2>$err_file);
+
+    if ( $^O eq 'MSWin32' or not defined $timeout) {
+        # Windows... Sigh. Launch commands at your own risks.
+        # But you are already familiar with the risks since you
+        # run windows, aren't you? :)
+        $stdout = `$cmd`;
 
     } else {
-	# There's a unix smell near there...
-	# Let's play with alarms...
-	# !!FIXME!! Is there a way to make signal handlers local?
-	$SIG{ALRM} = sub { die "timeout"; };
+        # There's a unix smell near there...
+        # Let's play with alarms...
     
-	eval {
-	    alarm($restrict{time});
-	    $stdout = `$^X $file <$in_file 2>$err_file`;
-	    alarm(0);
-	};
-	if ($@) {
-	    if ($@ =~ /timeout/ ) {
-		# Timed out! 
-		# Bad guy who tried to stuck our machine.
-		$self->{result}[0]++;   # One more test.
-		$self->{result}[1] = 0; 
-		push @{ $self->{result} }, "Oops, timed out while running script.";
-		return;
+        eval {
+            local $SIG{ALRM} = sub { die "timeout"; };
+            alarm($timeout);
+            $stdout = qx($cmd);
+            alarm(0);
+        };
+        if ($@) {
+            if ($@ =~ /timeout/ ) {
+                # Timed out! 
+                # Bad guy who tried to stick our machine.
+                $self->{entry}->ok( 0, "Oops, timed out $timeout"
+                                     . "seconds) while running script." );
+                return;
 
-	    } else {
-		# We should not get there, should we?
-		alarm(0); # Clear the still pending alarm.
-		croak;	  # Propagate unexpected exception.
-	    }
-	}
+            } else {
+                # We should not get there, should we?
+                alarm(0); # Clear the still pending alarm.
+                croak;    # Propagate unexpected exception.
+            }
+        }
     }
 
     # Fetch results.
     my $ec = $? >> 8;
     my $stderr;
     {
-	local $/;
-	open ERR, "<$err_file" or croak $!;
-	$stderr = <ERR>;
-	close ERR;
+        local $/;
+        open ERR, "<$err_file" or croak $!;
+        $stderr = <ERR>;
+        close ERR;
     }
     unlink $in_file;  # We live in a clean world.
     unlink $err_file; # Do not leave garbage.
@@ -334,15 +373,15 @@ sub ioee {
     my ($pid, $ec);
 
     # Restrictions to apply
-    my %restrict = 
-      ( time   => 30,		# 30 Seconds
-	stdout => 1000000,	# 1  Megabyte
-	stderr => 1000000,	# 1  Megabyte
-	@_
+    my %limit = 
+      ( time   => 30,           # 30 Seconds
+        stdout => 1000000,      # 1  Megabyte
+        stderr => 1000000,      # 1  Megabyte
+        @_
       );
 
     croak "Invalid parameters passed!"
-      unless (scalar keys %restrict == 3);
+      unless (scalar keys %limit == 3);
 
     # Storage for data read
     my ($stdout, $stderr) = ("", "");
@@ -350,75 +389,72 @@ sub ioee {
     # Use exceptions
     eval {
         # Start code under test
-	local (*IN, *OUT, *ERR);
-	$pid  = open3(\*IN, \*OUT, \*ERR, "$^X $file");
+        local (*IN, *OUT, *ERR);
+        $pid  = open3(\*IN, \*OUT, \*ERR, "$^X $file");
 
-	# Use select to monitor filehandles
-	my $select = IO::Select->new;
-	$select->add(\*OUT, \*ERR); # do not check \*IN.
+        # Use select to monitor filehandles
+        my $select = IO::Select->new;
+        $select->add(\*OUT, \*ERR); # do not check \*IN.
 
-	# Do writing.
-	print IN $in;
-	close IN;
+        # Do writing.
+        print IN $in;
+        close IN;
 
-	waitpid($pid, 0);
-	$ec = $? >> 8;
+        waitpid($pid, 0);
+        $ec = $? >> 8;
 
-	# Do reading
-	while ( my @ready = $select->can_read(SELECT_TIMEOUT) ) {
+        # Do reading
+        while ( my @ready = $select->can_read(SELECT_TIMEOUT) ) {
 
-	    foreach my $fh ( @ready ) {
-		# from STDOUT
-		if ($fh == \*OUT) {
-		    $stdout .= <OUT>;
-		}
-		# from STDERR
-		elsif ($fh == \*ERR) {
-		    $stderr .= <ERR>;
-		}
-		$select->remove($fh) if eof($fh);
-	    }
-	}
-	#waitpid($pid, 0);
+            foreach my $fh ( @ready ) {
+                # from STDOUT
+                if ($fh == \*OUT) {
+                    $stdout .= <OUT>;
+                }
+                # from STDERR
+                elsif ($fh == \*ERR) {
+                    $stderr .= <ERR>;
+                }
+                $select->remove($fh) if eof($fh);
+            }
+        }
+        #waitpid($pid, 0);
 
-	close OUT;
-	close ERR;
+        close OUT;
+        close ERR;
     };
 
     # Handle exceptions (TODO)
     #if ($@) {
-    #	die $@;
+    #die $@;
     #}
 
 =cut
 
     # one more test.
-    $self->{result}[0]++;
     my $success = 1;
     my $msg     = "";
 
     if ( defined($out) and $stdout ne $out ) {
-	# Ooops, wrong output.
-	$success = 0;
+    # Ooops, wrong output.
+        $success = 0;
         $msg = "Oops, wrong output.\nExpected:\n--\n".$out."--\nGot:\n--\n".$stdout."--";
-
     } 
 
     if ( defined($err) and $stderr ne $err ) {
-	# Ooops, wrong stderr.
-	$success = 0;
+        # Ooops, wrong stderr.
+        $success = 0;
         $msg = "Oops, wrong stderr.\nExpected:\n--\n".$err."--\nGot:\n--\n".$stderr."--";
     } 
 
     if ( defined($exit) and $ec != $exit ) {
-	# Ooops, wrong exit code.
-	$success = 0;
+        # Ooops, wrong exit code.
+        $success = 0;
         $msg = "Oops, wrong exit code. Expected: $exit, got: $ec";
     }
 
     # Store result of the test.
-    $self->{result}[1] += $success;
-    push @{ $self->{result} }, $msg;
+    $self->{entry}->ok( $success, $msg );
 }
 
 =head2 Available tests for testing subs
@@ -445,12 +481,8 @@ sub makesub {
     my $self = shift;
     my $sub  = eval "sub { $self->{code} }";
 
-    # one more test
-    $self->{result}[0]++;
-
     # did it compile?
-    $self->{result}[1]++ unless $@;
-    push @{ $self->{result} }, $@;
+    $self->{entry}->ok( !$@, $@ );
 
     # finally store the coderef (might be undef)
     $self->{sub} = $sub;
@@ -469,7 +501,7 @@ Call the subroutine defined with makesub().
 
 sub sub {
     my $self = shift;
-    &{ $self->{sub} } (@_) if defined $self->{sub};
+    $self->{sub}(@_) if defined $self->{sub};
 }
 
 =item $test->ok( $result, $expected );
@@ -516,12 +548,8 @@ sub ok ($$$) {
     my $msg = "expected:\n--\n$expected--\ngot:\n--\n$result--\n";
 
     # update the result
-    $self->{result}[0]++;
-    if ($ok) {
-        $self->{result}[1]++;
-        $msg = "";
-    }
-    push @{ $self->{result} }, $msg;
+    # (this is getting complicated, with the two ok() methods)
+    $self->{entry}->ok( $ok, $msg );
 }
 
 =head2 Other test for the code itself
@@ -545,12 +573,8 @@ sub not_string {
     my $code = $self->{code};
     $code =~ s/\A.*\n//m;    # Shebang line may contain anything.
 
-    $self->{result}[0]++;
-    if ( index( $code, $s ) < $[ ) {
-        $self->{result}[1]++;
-        $msg = "";
-    }
-    push @{ $self->{result} }, $msg;
+    # update the results
+    $self->{entry}->ok( index( $code, $s ) < $[, $msg );
 }
 
 =item $test->not_match( $regex );
@@ -566,12 +590,8 @@ sub not_match {
     my $code = $self->{code};
     $code =~ s/\A.*\n//m;    # Shebang line may contain anything.
 
-    $self->{result}[0]++;
-    if ( $code !~ /$regex/ ) {
-        $self->{result}[1]++;
-        $msg = "";
-    }
-    push @{ $self->{result} }, $msg;
+    # update the results
+    $self->{entry}->ok( $code !~ /$regex/, $msg );
 }
 
 =item $test->not_op( $op );
@@ -605,7 +625,7 @@ Arrange for the entry script to be run with use strict; and warnings.
 
 =item Dave Hoover            E<lt>dave@redsquirreldesign.comE<gt>
 
-=item Steffen Müller         E<lt>tsee@gmx.netE<gt>
+=item Steffen Müller         E<lt>games-golf@steffen-mueller.netE<gt>
 
 =item Jonathan E. Paton      E<lt>jonathanpaton@yahoo.comE<gt>
 

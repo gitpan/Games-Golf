@@ -1,37 +1,53 @@
 Revision history for Perl extension Games::Golf.
 
+0.12  Sun Mar 10 2002
+        - major changes in ioee (renamed aioee)
+        - basic tie-breaker functionnality
+        - new scoring method, to having cheating on #! line
+        - new limit() method in Games::Golf::TestSuite
+        - basic player script
+        - make install should work
+        - extra documentation in Games::Golf::Security
+          and Games::Golf::Tutorial
+
+0.11  Mon Mar  5 2002
+        - documentation in doc/
+        - minor fixes
+
+0.10  Wed Feb 27 2002
+        - added the file t/hole4 that was missing from 0.09
+
 0.09  Tue Feb 26 2002
-	- new method ioee in Games::Golf::TestSuite
-	- removed version numbers except in Games/Golf.pm
+        - new method ioee in Games::Golf::TestSuite
+        - removed version numbers except in Games/Golf.pm
 
 0.08  Sun Feb 24 2002
-	- an up to date README
-	- nothing more, this is just for CPAN
+        - an up to date README
+        - nothing more, this is just for CPAN
 
 0.07  Wed Feb 20 2002
-	- Games::Golf::TestSuite added
-	- more and more tests
+        - Games::Golf::TestSuite added
+        - more and more tests
 
 0.06  Sun Feb 10 2002
-	- missed one 3 arg open...
+        - missed one 3 arg open...
 
 0.05  Sun Feb 10 2002
-	- modified shebang-stripping regex
-	- changed 3 arg open to 2 arg version to make earlier
-	  Perls happy.
+        - modified shebang-stripping regex
+        - changed 3 arg open to 2 arg version to make earlier
+          Perls happy.
 
 0.04  Sat Feb  9 2002
-	- bug fixed
-	- added 5.005 compatibility
+        - bug fixed
+        - added 5.005 compatibility
 
 0.03  Sat Feb  9 2002
-	- Games::Golf::Entry::score() added
-	- t/entry.t added
+        - Games::Golf::Entry::score() added
+        - t/entry.t added
 
 0.02  Fri Feb  8 2002
-	- first revision
+        - first revision
 
 0.01  Thu Feb  7 17:15:15 2002
-	- original version; created by h2xs 1.21 with options
-		-AX -n Games::Golf
-
+        - original version; created by h2xs 1.21 with options
+              -AX -n Games::Golf

@@ -1,2 +1,2 @@
 #-*- cperl -*-
-$test->ioee( "blah", "blah", undef, undef, time => 2 );
+$test->aioee( "", "blah", "blah", undef, undef, time => 2 );

@@ -3,7 +3,7 @@
 # Copyright (c) 2002
 #          Philippe 'BooK' Bruhat <book@cpan.org>
 #          Dave Hoover            <dave@redsquirreldesign.com>
-#          Steffen Müller         <tsee@gmx.net>
+#          Steffen Müller         <games-golf@steffen-mueller.net>
 #          Jonathan E. Paton      <jonathanpaton@yahoo.com>
 #          Jérôme Quelin          <jquelin@cpan.org>
 #          Eugène Van der Pijll   <E.C.vanderPijll@phys.uu.nl>
@@ -12,7 +12,7 @@
 # This program is free software; you can redistribute it and/or
 # modify it under the same terms as Perl itself.
 #
-# $Id: Entry.pm,v 1.18 2002/02/26 23:56:25 book Exp $
+# $Id: Entry.pm,v 1.28 2002/03/10 02:37:12 book Exp $
 #
 package Games::Golf::Entry;
 
@@ -25,6 +25,9 @@ BEGIN {
                $subs = 'author|email|nick|hole|date|code|result|id';
     use subs @subs;
 }
+
+# declare a class attribute, which is defined later
+my %tiebreak;
 
 # Modules we rely upon.
 use Carp;
@@ -79,16 +82,17 @@ sub new {
     # Create the object, and bless it.
     my $class = shift;
     my $self  = {
-        author => "",
-        email  => "",
-        nick   => "",
-        date   => "",
-        hole   => "",
-        code   => "",
-        score  => undef,
-        result => "",
-        tests  => [],
-        status => undef,
+        author      => "",
+        email       => "",
+        nick        => "",
+        date        => "",
+        hole        => "",
+        code        => "",
+        result      => [ 0, 0 ],
+        tests       => [],
+        status      => undef,
+        score       => undef,
+        tiebreaker  => { },
         @_
     };
     bless $self, $class;
@@ -131,8 +135,9 @@ The entry's code.
 
 =item result()
 
-The entry's test result. This is updated by the check() method of
-C<Games::Golf::TestSuite>.
+The entry's test result. This is updated by the ok() method, which should
+only be used by the check() method of C<Games::Golf::TestSuite> (do I make
+myself clear?).
 
 This structure is an array reference. The first parameter is the total
 number of tests taken. The second parameters is the number of tests passed.
@@ -146,7 +151,6 @@ passed. For example:
      "", # ok 2
      "expected:\n--\n3--\ngot:\n--\n4--\n" # not ok 3
      "", # ok 4
-     "", # ok 5
  ];
 
 =item file()
@@ -190,84 +194,9 @@ sub AUTOLOAD {
 
 =over 4
 
-=item test()
-
-Run the test suite on this entry.
-
-=cut
-
-=item test_ok()
-
-Return true if entry passed the test suite.
-
-!!FIXME!! A simple true/false value, or maybe a percentage if we're
-playing with Test::Harness?
-
-=item print_report()
-
-Outputs result of the tests.
-
-!!FIXME!! This means whe should cache also the result of tests?
-
-=back
-
-=cut
-
-=item test_one
-
-=cut
-
-sub test_one {
-    my $self = shift;
-    my %opt  = (
-        infile   => undef,
-        stdout   => "",
-        stderr   => "",
-        argv     => undef,
-        exitcode => undef,
-        @_
-    );
-    my $codetmp = 'code.tmp';
-    my $intmp   = 'in.tmp';
-    my $errtmp  = 'err.tmp';
-    _build_file( $codetmp, $self->{code} );
-    my $cmd = "$^X $codetmp";
-    if ( defined $opt{infile} ) {
-        _build_file( $intmp, $opt{infile} );
-        $cmd .= " $intmp";
-    }
-    $cmd .= " $opt{argv}" if defined $opt{argv};
-    $cmd .= " 2>$errtmp";
-    my $output = `$cmd`;
-    my $ec     = $? >> 8;
-    my $OK     = 1;
-    if ( defined $opt{exitcode} and $opt{exitcode} != $ec ) {
-        print "Exit code expected: $opt{exitcode}\nGot: $ec\n";
-        $OK = 0;
-    }
-    if ( defined $opt{stdout} and $opt{stdout} ne $output ) {
-        print "stdout expected:\n$opt{stdout}\nGot:\n$output\n";
-        $OK = 0;
-    }
-    if ( defined $opt{stderr} ) {
-        my $err = '';
-        if ( -s $errtmp ) {
-            local (*FF);
-            local $/ = undef;
-            open FF, $errtmp or die "error: open $errtmp: $!";
-            $err = <FF>;
-        }
-        if ( $opt{stderr} ne $err ) {
-            print "stderr expected:\n$opt{stderr}\nGot:\n$err\n";
-            $OK = 0;
-        }
-    }
-    return $OK;
-}
-
 =item score()
 
-Compute the this Entry's score.
+Compute and return this Entry's score.
 
 =cut
 
@@ -276,24 +205,151 @@ sub score {
     defined $self->{score} and return $self->{score};
 
     my $code = $self->{code};
-    $code =~ s/\n$//;           # Free last newline.
-    $code =~ s/^#!\S*perl//;    # Shebang.
+    $code =~ s/\n$//;                  # Free last newline.
+    $code =~ s{^#![-\w/.]+?perl}{};    # Shebang.
     $self->{score} = length($code) - 1;    # Free first newline.
 }
 
-#------------------------------------#
-#          Private methods.          #
-#------------------------------------#
 
-sub _build_file {
-    my ( $fname, $data ) = @_;
-    local (*FF);
-    open( FF, '>' . $fname ) or croak "Could not open '$fname': $!";
-    print FF $data;
-    close(FF);
+=item tiebreak( $tie, [ $tie2 , ... ] );
+
+Compute and return this entry tie-breaking scores.
+
+This method is meant to be used as an accessor.
+
+If $tie is a string, it's used to look up one of the predefined
+tie-breaking values. If it's a coderef, the given subroutine is
+used to compute the tie-breaking value. This value is I<not> cached.
+
+Examples of use:
+
+ # return the date tie-breaker
+ $tie = $entry->tiebreak( "date" );
+
+ # yet another way to break ties
+ $tie = $entry->tiebreak( sub { rand } );
+
+ # return both in a hash
+ %tie = $entry->tiebreak( "date",  sub { rand } );
+
+ # all predefined tie-breaking values
+ %tie = $entry->tiebreak;
+
+Several tie-breaking score are predefined. They are meant to be used
+as the decimal part of a score. So they should be such that the lower
+C<$entry-E<gt>score() + $entry-E<gt>tiebreak()>, the better the overall
+score is.
+
+=cut
+
+sub tiebreak {
+    my $self = shift;
+
+    # compute all values
+    if ( not keys %{ $self->{tiebreaker} } ) {
+        %{ $self->{tiebreaker} } =
+          map { ( $_, $tiebreak{$_}->($self) ) } keys %tiebreak;
+    }
+
+    # what did they ask for?
+    if ( @_ == 0 ) { return %{ $self->{tiebreaker} } }
+    my %ties = map {
+        my $tiebreak = $self->{tiebreaker}{$_};
+        if ( ref $_ eq 'CODE' ) {
+            $tiebreak = $_->($self);
+            # warning: this relies on $_ being an alias
+            $_ = 'userdefined';    # !!FIXME!! nothing better?
+        }
+        ( $_, $tiebreak );
+    } @_;
+
+    # return either a value, or a hash
+    return @_ == 1 ? $ties{ $_[0] } : %ties;
 }
 
+=pod
+
+The predefined tie-breaking values are:
+
+=over 4
+
+=item date
+
+The sooner the code is submitted, the better.
+This value is simply computed as YYYYMMDDhhmmss, or in POSIX strftime()
+parlance: C<"%Y%m%d%H%M%S">.
+
+=item weird
+
+The bigger the percentage of "weird characters", the better.
+Weird characters are defined as C<[^\w\s]>.
+
+!!FIXME!! 1 is an invalid value! It'll increase the score by one, if
+we use this tiebreaker in an addition. My proposition is to compute
+the percentage as the number of non weird char divied by score + 1.
+
+=back
+
+=cut
+
+%tiebreak = (
+    # !!FIXME!! to be defined!
+    date => sub {},
+
+    weird => sub {
+        my $entry = shift;
+        my $code  = $entry->code;
+        # !!FIXME!! Some code is duplicated in score()
+        # we might create a sub like morphcode() to handle these
+        $code =~ s/\r\n|\n\r/\n/g;         # Handle newlines the smart way.
+        $code =~ s/\n+$//;                 # Free last newlines.
+        $code =~ s{^#![-\w/.]+?perl}{};    # Shebang.
+        my $score = length($code) - 1;     # Free first newline.
+        $code =~ s/[^\w\s]//g;             # Strip weird chars.
+        $score = ( length($code) - 1 ) / $score;
+        return $score;
+    }
+
+);
+
+=item ok( $status, $msg )
+
+B<WARNING:> This method should only be used in the Games::Golf::TestSuite
+object.
+
+Updates the C<result> attribute of the Games::Golf::Entry object.
+
+If the test passed, $status should be true (and the message stored will
+be empty).
+
+If the test failed, $status should be false, and a message
+should be given. If no message is given, ok() will store a default
+message in C<result>.  This means that you can be sure that if a message
+in C<result> is true, then the test failed.
+
+=cut
+
+sub ok {
+    my ( $self, $ok, $msg ) = @_;
+    $msg ||= "Test failed with no message.";
+
+    # update the counters
+    $self->{result}[0]++;
+    if( $ok ) {
+        $self->{result}[1]++;
+        $msg = "";
+    }
+
+    # don't forget the message
+    push @{ $self->{result} }, $msg;
+}
+
+=back
+
+=cut
+
 1;
+
 __END__
 
 =head1 BUGS
@@ -314,7 +370,7 @@ Lots of stuff.
 
 =item Dave Hoover            E<lt>dave@redsquirreldesign.comE<gt>
 
-=item Steffen Müller         E<lt>tsee@gmx.netE<gt>
+=item Steffen Müller         E<lt>games-golf@steffen-mueller.netE<gt>
 
 =item Jonathan E. Paton      E<lt>jonathanpaton@yahoo.comE<gt>
 

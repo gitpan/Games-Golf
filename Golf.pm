@@ -2,7 +2,7 @@
 # Copyright (c) 2002
 #          Philippe 'BooK' Bruhat <book@cpan.org>
 #          Dave Hoover            <dave@redsquirreldesign.com>
-#          Steffen Muller         <tsee@gmx.net>
+#          Steffen Muller         <games-golf@steffen-mueller.net>
 #          Jonathan E. Paton      <jonathanpaton@yahoo.com>
 #          Jerome Quelin          <jquelin@cpan.org>
 #          Eugene Van der Pijll   <E.C.vanderPijll@phys.uu.nl>
@@ -11,7 +11,7 @@
 # This program is free software; you can redistribute it and/or
 # modify it under the same terms as Perl itself.
 #
-# $Id: Golf.pm,v 1.18 2002/03/05 00:25:15 book Exp $
+# $Id: Golf.pm,v 1.23 2002/03/09 11:47:18 jep Exp $
 #
 
 package Games::Golf;
@@ -26,7 +26,7 @@ use Games::Golf::Entry;
 
 # Variables of the module. blah
 local $^W = 1;    # use warnings for perl < 5.6
-$VERSION = '0.11';
+$VERSION = '0.12';
 
 =head1 NAME
 
@@ -105,9 +105,9 @@ sub new {
     my $class = shift;
     my $self  = {
         entries     => {},
-	holes       => [],
+        holes       => [],
         deadline    => undef,
-	referees    => [],
+        referees    => [],
         @_
     };
     bless $self, $class;
@@ -161,18 +161,18 @@ sub extract {
             my ( $name,    $nick, $category );
             my ( $extr_to, %id, %scripts );
 
-	    # Merge headers-to-be-continued.
-	    my $seen;
-	    foreach my $i (reverse 0..$#$mail) {
-		$mail->[$i] =~ /^$/ and $seen++;
-		next unless $seen;
-		$mail->[$i] =~ s/^\s+/ /  # remove \n of $mail->[$i-1]
-		  and substr $mail->[$i-1], -1, 1, $mail->[$i];
-	    }
+            # Merge headers-to-be-continued.
+            my $seen;
+            foreach my $i (reverse 0..$#$mail) {
+                $mail->[$i] =~ /^$/ and $seen++;
+                next unless $seen;
+                $mail->[$i] =~ s/^\s+/ /  # remove \n of $mail->[$i-1]
+                  and substr $mail->[$i-1], -1, 1, $mail->[$i];
+            }
 
 
-	    # Parse mail.
-	    foreach my $line ( @$mail ) {
+            # Parse mail.
+            foreach my $line ( @$mail ) {
                 chomp($line);
 
                 # Extract all that we can.
@@ -354,6 +354,12 @@ C<MD5> to implement our cache mechanism.
 
 Lots of stuff.
 
+=head1 BUGS
+
+Please report all bugs to:
+
+http://rt.cpan.org/NoAuth/Bugs.html?Dist=Games-Golf
+
 =head1 AUTHORS
 
 =over 4
@@ -362,7 +368,7 @@ Lots of stuff.
 
 =item Dave Hoover            E<lt>dave@redsquirreldesign.comE<gt>
 
-=item Steffen Müller         E<lt>tsee@gmx.netE<gt>
+=item Steffen Müller         E<lt>games-golf@steffen-mueller.netE<gt>
 
 =item Jonathan E. Paton      E<lt>jonathanpaton@yahoo.comE<gt>
 

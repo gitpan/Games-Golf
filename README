@@ -1,5 +1,5 @@
-Game/Golf version 0.09
-======================
+README for module Games::Golf
+=============================
 
 The game of Perl golf is becoming increasingly popular. Holes frequently
 appear on Perl Monks, the Perl Review has an ongoing Perl Golf colunm,
@@ -31,12 +31,14 @@ AUTHORS
 
 Philippe 'BooK' Bruhat <book@cpan.org>
 Dave Hoover            <dave@redsquirreldesign.com>
-Steffen Müller         <tsee@gmx.net>
+Steffen Müller         <games-golf@steffen-mueller.net>
 Jonathan E. Paton      <jonathanpaton@yahoo.com>
 Jérôme Quelin          <jquelin@cpan.org>
 Eugène Van der Pijll   <E.C.vanderPijll@phys.uu.nl>
 
 Contact the developement team at <games-golf-cvs@mongueurs.net>
+
+Submit bugs through http://rt.cpan.org/NoAuth/Bugs.html?Dist=Games-Golf
 
 COPYRIGHT AND LICENCE
 

@@ -1,6 +1,6 @@
 # -*- cperl -*-
 $test->compile;
-$test->ioee( << 'EOI', << 'EOO', "" );
+$test->aioee( "", << 'EOI', << 'EOO', "" );
 foo
 bar
 baz

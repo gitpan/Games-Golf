@@ -1,0 +1,94 @@
+=head1 PGAS and Games::Golf presentation
+
+So you want to host a Perl golf contest? These games can be quite
+successful: for example the golf game organised by The Perl Review
+volume 0 issue 1 had more than 100 players, and a total of 500 entries
+were submitted.
+
+So you need tools to run one of those fun and successful games.
+
+PGAS (Perl Golf A S) is such a tool. Based on Games::Golf, a serie
+of modules to help writing tests for golf games, it should make
+the 
+
+=head2 Features for the organiser
+
+=head2 Features for the referees
+
+=head2 Features for the players
+
+=head1 Referee: Creating a test suite for use with Games::Golf
+
+The test script used by the players makes use of the methods provided
+by the Games::Golf::TestSuite object.
+
+A test suite is written in Perl. But since that code is in fact
+eval()ed somewhere deep in Games::Golf::TestSuite, you really have
+very little work to do.
+
+A typical test suite will look like this:
+
+ # First test: the player script should at least compile
+ $test->compile;
+ $test->ioee( << INPUT, << OUTPUT, "", 0 );
+ This is the input
+ INPUT
+ We wait for this output
+ OUTPUT
+
+=head2 Testing a script
+
+Two methods are used only for scripts:
+
+=over 4
+
+=item compile
+
+=item ioee
+
+=back
+
+=head2 Testing a sub
+
+Three methods are used only for subs:
+
+=over 4
+
+=item makesub
+
+=item sub
+
+=item ok
+
+=back
+
+=head2 Other available methods
+
+The following methods are used to test the code itself:
+
+=over 4
+
+=item not_string
+
+=item not_match
+
+=back
+
+=head2 Placing restrictions on the code
+
+You can force any test to break if some restrictions are not respected.
+More precisely, you can limit the running time of the script (by a timeout),
+and the size of stdout and stderr.
+
+=head1 Player
+
+=head2 Using the test script
+
+=head2 Using PGAS
+
+=head1 Credits
+
+=head2 Games::Golf and PGAS authors
+
+=head2 This article's authors
+

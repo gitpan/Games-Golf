@@ -1,0 +1,28 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+use Games::Golf::TestSuite;
+use Games::Golf::Entry;
+
+use Getopt::Std;
+
+my $hole = shift;
+
+my $testsuite = Games::Golf::TestSuite->new( $hole );
+
+open F, "< $hole.pl" or die "Can't open script $hole.pl";
+my $entry = Games::Golf::Entry->new;
+{
+    local $/;
+    $entry->code( <F> );
+}
+close F or die "Can't close $hole.pl";
+
+$testsuite->check( $entry );
+
+my @result = @{ $entry->result };
+print "Passed $result[1]/$result[0] tests!\n",
+      map { sprintf "Test %3d failed\n", $_-1 if $result[$_] }
+      2 .. @result -2;
+
