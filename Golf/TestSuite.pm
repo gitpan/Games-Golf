@@ -12,7 +12,7 @@
 # This program is free software; you can redistribute it and/or
 # modify it under the same terms as Perl itself.
 #
-# $Id: TestSuite.pm,v 1.17 2002/02/26 20:40:47 book Exp $
+# $Id: TestSuite.pm,v 1.18 2002/02/26 23:56:25 book Exp $
 #
 package Games::Golf::TestSuite;
 
@@ -514,7 +514,7 @@ Arrange for the entry script to be run with use strict; and warnings.
 
 =item Jonathan E. Paton      E<lt>jonathanpaton@yahoo.comE<gt>
 
-=item Jérôme Quelin          E<lt>jerome.quelin@insalien.orgE<gt>
+=item Jérôme Quelin          E<lt>jquelin@cpann.orgE<gt>
 
 =item Eugène Van der Pijll   E<lt>E.C.vanderPijll@phys.uu.nlE<gt>
 

@@ -11,7 +11,7 @@
 # This program is free software; you can redistribute it and/or
 # modify it under the same terms as Perl itself.
 #
-# $Id: Golf.pm,v 1.15 2002/02/26 22:27:55 book Exp $
+# $Id: Golf.pm,v 1.17 2002/02/27 20:52:43 book Exp $
 #
 
 package Games::Golf;
@@ -26,7 +26,7 @@ use Games::Golf::Entry;
 
 # Variables of the module. blah
 local $^W = 1;    # use warnings for perl < 5.6
-$VERSION = '0.09';
+$VERSION = '0.10';
 
 =head1 NAME
 
@@ -366,7 +366,7 @@ Lots of stuff.
 
 =item Jonathan E. Paton      E<lt>jonathanpaton@yahoo.comE<gt>
 
-=item Jérôme Quelin          E<lt>jerome.quelin@insalien.orgE<gt>
+=item Jérôme Quelin          E<lt>jquelin@cpan.orgE<gt>
 
 =item Eugène Van der Pijll   E<lt>E.C.vanderPijll@phys.uu.nlE<gt>
 

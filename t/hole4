@@ -1,0 +1,11 @@
+# -*- cperl -*-
+$test->compile;
+$test->ioee( << 'EOI', << 'EOO', "" );
+foo
+bar
+baz
+EOI
+foo
+bar
+baz
+EOO
