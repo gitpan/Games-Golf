@@ -1,5 +1,5 @@
 #
-# $Id: Golf.pm,v 1.38 2002/05/13 14:03:57 smueller Exp $
+# $Id: Golf.pm,v 1.38.2.1 2002/05/15 21:54:30 book Exp $
 #
 
 package Games::Golf;
@@ -15,7 +15,7 @@ BEGIN {
     use subs @subs;
 }
 
-$VERSION = '0.14';
+$VERSION = '0.14a';
 
 # Modules we rely upon...
 use Carp;

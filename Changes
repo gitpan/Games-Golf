@@ -1,5 +1,9 @@
 Revision history for Perl extension Games::Golf.
 
+0.14a Wed May 15 2002
+        - Corrected a slight pod bug that prevented search.cpan.org
+          to extract Games::Golf::TestSuite's documentation
+
 0.14  Tue May 14 2002
 
 A lot of things have changed several times since 0.13...

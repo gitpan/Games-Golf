@@ -3,7 +3,7 @@
 # This program is free software; you can redistribute it and/or
 # modify it under the same terms as Perl itself.
 #
-# $Id: TestSuite.pm,v 1.97 2002/05/14 16:40:11 book Exp $
+# $Id: TestSuite.pm,v 1.97.2.1 2002/05/15 21:54:32 book Exp $
 #
 package Games::Golf::TestSuite;
 
@@ -37,6 +37,7 @@ my %capture = (
 # temporary files template, for use with File::Temp
 my $template = File::Spec->canonpath( (File::Spec->tmpdir() || ".")             
                                       . "/golfXXXX" );      
+
 =head1 NAME
 
 Games::Golf::TestSuite - Class that can run test suites
